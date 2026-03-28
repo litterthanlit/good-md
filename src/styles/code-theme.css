@@ -1,0 +1,135 @@
+/* Light theme - GitHub style */
+.hljs {
+  color: #24292e;
+  background: transparent;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  color: #d73a49;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  color: #005cc5;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #032f62;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #6f42c1;
+  font-weight: 600;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  color: #6f42c1;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  color: #22863a;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  color: #005cc5;
+}
+
+.hljs-meta {
+  color: #735c0f;
+}
+
+.hljs-addition {
+  color: #22863a;
+  background-color: #f0fff4;
+}
+
+.hljs-deletion {
+  color: #b31d28;
+  background-color: #ffeef0;
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  .hljs {
+    color: #e6edf3;
+  }
+
+  .hljs-comment,
+  .hljs-quote {
+    color: #8b949e;
+  }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-subst {
+    color: #ff7b72;
+  }
+
+  .hljs-number,
+  .hljs-literal,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-tag .hljs-attr {
+    color: #79c0ff;
+  }
+
+  .hljs-string,
+  .hljs-doctag {
+    color: #a5d6ff;
+  }
+
+  .hljs-title,
+  .hljs-section,
+  .hljs-selector-id {
+    color: #d2a8ff;
+    font-weight: 600;
+  }
+
+  .hljs-type,
+  .hljs-class .hljs-title {
+    color: #d2a8ff;
+  }
+
+  .hljs-tag,
+  .hljs-name,
+  .hljs-attribute {
+    color: #7ee787;
+  }
+
+  .hljs-built_in,
+  .hljs-builtin-name {
+    color: #79c0ff;
+  }
+
+  .hljs-meta {
+    color: #d29922;
+  }
+
+  .hljs-addition {
+    color: #aff5b4;
+    background-color: #033a16;
+  }
+
+  .hljs-deletion {
+    color: #ffdcd7;
+    background-color: #67060c;
+  }
+}
