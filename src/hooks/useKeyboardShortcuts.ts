@@ -6,12 +6,31 @@ interface ShortcutHandlers {
   onCloseFile: () => void;
   onNavigateUp: () => void;
   onNavigateDown: () => void;
+  onOpenCommandPalette: () => void;
+  onOpenSearch: () => void;
+  onToggleOutline: () => void;
+  onNavigateHeadingPrev: () => void;
+  onNavigateHeadingNext: () => void;
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT" ||
+    target.isContentEditable
+  );
 }
 
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
+      const typing = isTypingTarget(e.target);
 
       if (meta && e.key === "o" && !e.shiftKey) {
         e.preventDefault();
@@ -19,13 +38,28 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       } else if (meta && e.key === "o" && e.shiftKey) {
         e.preventDefault();
         handlers.onOpenFolder();
+      } else if (meta && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        handlers.onOpenCommandPalette();
+      } else if (meta && e.shiftKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        handlers.onOpenSearch();
+      } else if (meta && e.key === "\\") {
+        e.preventDefault();
+        handlers.onToggleOutline();
       } else if (meta && e.key === "w") {
         e.preventDefault();
         handlers.onCloseFile();
-      } else if (e.key === "ArrowUp" && !meta) {
+      } else if (e.key === "ArrowUp" && !meta && !typing) {
         handlers.onNavigateUp();
-      } else if (e.key === "ArrowDown" && !meta) {
+      } else if (e.key === "ArrowDown" && !meta && !typing) {
         handlers.onNavigateDown();
+      } else if (e.key === "[" && !meta && !typing) {
+        e.preventDefault();
+        handlers.onNavigateHeadingPrev();
+      } else if (e.key === "]" && !meta && !typing) {
+        e.preventDefault();
+        handlers.onNavigateHeadingNext();
       }
     };
 

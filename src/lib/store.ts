@@ -7,6 +7,7 @@ export interface PersistedState {
   watchedFolder: string | null;
   scrollPositions: Record<string, number>;
   themePreference: ThemePreference;
+  outlineVisible: boolean;
 }
 
 const STORE_FILE = "houston-state.json";
@@ -27,6 +28,7 @@ function getDefaultState(): PersistedState {
     watchedFolder: null,
     scrollPositions: {},
     themePreference: "system",
+    outlineVisible: true,
   };
 }
 

@@ -44,7 +44,8 @@ pub fn run() {
             commands::watch_folder,
             commands::stop_watcher,
             commands::list_markdown_files,
-            commands::consume_pending_open_files
+            commands::consume_pending_open_files,
+            commands::search_markdown_files
         ])
         .build(tauri::generate_context!())
         .expect("error while running Houston");

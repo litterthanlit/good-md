@@ -13,6 +13,7 @@ function extractFileInfo(path: string) {
 export function useFileManager() {
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  const [watchedFilePaths, setWatchedFilePaths] = useState<string[]>([]);
   const [scrollPositions, setScrollPositions] = useState<
     Record<string, number>
   >({});
@@ -92,7 +93,7 @@ export function useFileManager() {
     setOpenFiles((prev) => {
       const idx = prev.findIndex((f) => f.path === path);
       if (idx === -1) {
-        return [...prev, file];
+        return prev;
       }
 
       const next = [...prev];
@@ -142,12 +143,14 @@ export function useFileManager() {
     openFiles,
     activeFile,
     activeFilePath,
+    watchedFilePaths,
     scrollPositions,
     watchedFolder,
     openFile,
     reloadFile,
     closeFile,
     setActiveFilePath,
+    setWatchedFilePaths,
     setWatchedFolder,
     updateScrollPosition,
   };
