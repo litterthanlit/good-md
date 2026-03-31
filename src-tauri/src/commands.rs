@@ -1,4 +1,4 @@
-use crate::watcher::{self, WatcherState};
+use crate::{watcher::{self, WatcherState}, PendingOpenFiles};
 use tauri::{AppHandle, State};
 
 #[tauri::command]
@@ -36,4 +36,12 @@ pub async fn stop_watcher(state: State<'_, WatcherState>) -> Result<(), String> 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     *guard = None;
     Ok(())
+}
+
+#[tauri::command]
+pub async fn consume_pending_open_files(
+    state: State<'_, PendingOpenFiles>,
+) -> Result<Vec<String>, String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    Ok(std::mem::take(&mut *guard))
 }

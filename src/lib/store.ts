@@ -1,10 +1,12 @@
 import { Store } from "@tauri-apps/plugin-store";
+import type { ThemePreference } from "./types";
 
-interface PersistedState {
+export interface PersistedState {
   openFilePaths: string[];
   activeFilePath: string | null;
   watchedFolder: string | null;
   scrollPositions: Record<string, number>;
+  themePreference: ThemePreference;
 }
 
 const STORE_FILE = "houston-state.json";
@@ -18,21 +20,25 @@ async function getStore(): Promise<Store> {
   return storeInstance;
 }
 
-export async function saveState(state: PersistedState): Promise<void> {
+function getDefaultState(): PersistedState {
+  return {
+    openFilePaths: [],
+    activeFilePath: null,
+    watchedFolder: null,
+    scrollPositions: {},
+    themePreference: "system",
+  };
+}
+
+export async function saveState(state: Partial<PersistedState>): Promise<void> {
   const store = await getStore();
-  await store.set("state", state);
+  const current = await loadState();
+  await store.set("state", { ...current, ...state });
   await store.save();
 }
 
 export async function loadState(): Promise<PersistedState> {
   const store = await getStore();
   const state = await store.get<PersistedState>("state");
-  return (
-    state ?? {
-      openFilePaths: [],
-      activeFilePath: null,
-      watchedFolder: null,
-      scrollPositions: {},
-    }
-  );
+  return { ...getDefaultState(), ...state };
 }

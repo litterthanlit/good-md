@@ -4,3 +4,5 @@ export interface OpenFile {
   parentFolder: string;
   content: string;
 }
+
+export type ThemePreference = "system" | "light" | "dark";

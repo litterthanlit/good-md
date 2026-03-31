@@ -16,7 +16,16 @@ export default function SidebarItem({
   return (
     <div
       className={`sidebar-item ${isActive ? "active" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isActive}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       <div className="sidebar-item-info">
         <div className="sidebar-item-name">{file.filename}</div>

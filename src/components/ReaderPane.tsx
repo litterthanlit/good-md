@@ -30,6 +30,14 @@ export default function ReaderPane({
     }
   }, [filePath, scrollPositions]);
 
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleScroll = () => {
     if (!filePath || !containerRef.current) return;
     if (scrollTimeoutRef.current) {
@@ -42,7 +50,7 @@ export default function ReaderPane({
     }, 300);
   };
 
-  if (!content) {
+  if (content === null) {
     return (
       <div className="reader-pane">
         <EmptyState />

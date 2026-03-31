@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { OpenFile } from "../lib/types";
 import { readMarkdownFile } from "../lib/commands";
 import { saveState, loadState } from "../lib/store";
 
 function extractFileInfo(path: string) {
-  const parts = path.split("/");
+  const parts = path.split(/[\\/]+/);
   const filename = parts[parts.length - 1] || path;
   const parentFolder = parts.length >= 2 ? parts[parts.length - 2] : "";
   return { filename, parentFolder };
@@ -16,7 +16,13 @@ export function useFileManager() {
   const [scrollPositions, setScrollPositions] = useState<
     Record<string, number>
   >({});
+  const [watchedFolder, setWatchedFolder] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const openFilesRef = useRef<OpenFile[]>([]);
+
+  useEffect(() => {
+    openFilesRef.current = openFiles;
+  }, [openFiles]);
 
   // Restore state on mount
   useEffect(() => {
@@ -42,6 +48,7 @@ export function useFileManager() {
           }
           setScrollPositions(state.scrollPositions);
         }
+        setWatchedFolder(state.watchedFolder);
         setInitialized(true);
       })
       .catch(() => setInitialized(true));
@@ -53,15 +60,15 @@ export function useFileManager() {
     saveState({
       openFilePaths: openFiles.map((f) => f.path),
       activeFilePath,
-      watchedFolder: null,
+      watchedFolder,
       scrollPositions,
     }).catch(() => {});
-  }, [openFiles, activeFilePath, scrollPositions, initialized]);
+  }, [openFiles, activeFilePath, watchedFolder, scrollPositions, initialized]);
 
   const openFile = useCallback(
     async (path: string) => {
       // Already open — just switch to it
-      const existing = openFiles.find((f) => f.path === path);
+      const existing = openFilesRef.current.find((f) => f.path === path);
       if (existing) {
         setActiveFilePath(path);
         return;
@@ -74,8 +81,25 @@ export function useFileManager() {
       setOpenFiles((prev) => [...prev, file]);
       setActiveFilePath(path);
     },
-    [openFiles],
+    [],
   );
+
+  const reloadFile = useCallback(async (path: string) => {
+    const content = await readMarkdownFile(path);
+    const { filename, parentFolder } = extractFileInfo(path);
+    const file: OpenFile = { path, filename, parentFolder, content };
+
+    setOpenFiles((prev) => {
+      const idx = prev.findIndex((f) => f.path === path);
+      if (idx === -1) {
+        return [...prev, file];
+      }
+
+      const next = [...prev];
+      next[idx] = file;
+      return next;
+    });
+  }, []);
 
   const closeFile = useCallback(
     (path: string) => {
@@ -119,9 +143,12 @@ export function useFileManager() {
     activeFile,
     activeFilePath,
     scrollPositions,
+    watchedFolder,
     openFile,
+    reloadFile,
     closeFile,
     setActiveFilePath,
+    setWatchedFolder,
     updateScrollPosition,
   };
 }
