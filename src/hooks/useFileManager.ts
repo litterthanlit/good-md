@@ -137,6 +137,12 @@ export function useFileManager() {
     [],
   );
 
+  const updateFileContent = useCallback((path: string, content: string) => {
+    setOpenFiles((prev) =>
+      prev.map((file) => (file.path === path ? { ...file, content } : file)),
+    );
+  }, []);
+
   const activeFile = openFiles.find((f) => f.path === activeFilePath) ?? null;
 
   return {
@@ -153,5 +159,6 @@ export function useFileManager() {
     setWatchedFilePaths,
     setWatchedFolder,
     updateScrollPosition,
+    updateFileContent,
   };
 }

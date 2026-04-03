@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Sidebar from "./components/Sidebar";
 import ReaderPane from "./components/ReaderPane";
@@ -11,6 +12,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useThemePreference } from "./hooks/useThemePreference";
 import {
   consumePendingOpenFiles,
+  writeMarkdownFile,
   searchMarkdownFiles,
   stopWatcher,
   watchFolder,
@@ -23,6 +25,18 @@ import "./App.css";
 
 const MD_EXTENSIONS = ["md", "mdx", "markdown"];
 const NARROW_LAYOUT_WIDTH = 1180;
+const DEFAULT_ZOOM_LEVEL = 1;
+const MIN_ZOOM_LEVEL = 0.8;
+const MAX_ZOOM_LEVEL = 2;
+const ZOOM_STEP = 0.1;
+
+function clampZoomLevel(value: number) {
+  return Math.min(MAX_ZOOM_LEVEL, Math.max(MIN_ZOOM_LEVEL, value));
+}
+
+function roundZoomLevel(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
 function isMarkdownPath(path: string) {
   const extension = path.split(".").pop()?.toLowerCase();
@@ -58,6 +72,7 @@ function App() {
     watchedFolder,
     setWatchedFolder,
     updateScrollPosition,
+    updateFileContent,
   } = useFileManager();
 
   const [dragOver, setDragOver] = useState(false);
@@ -66,6 +81,11 @@ function App() {
   const [paletteQuery, setPaletteQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [externalChangePaths, setExternalChangePaths] = useState<
+    Record<string, true>
+  >({});
   const [jumpTarget, setJumpTarget] = useState<{
     filePath: string;
     headingId: string | null;
@@ -73,20 +93,40 @@ function App() {
   } | null>(null);
   const [outlineVisible, setOutlineVisible] = useState(true);
   const [outlineInitialized, setOutlineInitialized] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(DEFAULT_ZOOM_LEVEL);
   const [isNarrowLayout, setIsNarrowLayout] = useState(
     () => window.innerWidth < NARROW_LAYOUT_WIDTH,
   );
   const { themePreference, setThemePreference } = useThemePreference();
+  const draftsRef = useRef(drafts);
+  const savingPathsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    draftsRef.current = drafts;
+  }, [drafts]);
+
+  const activeContent =
+    activeFilePath && activeFile
+      ? drafts[activeFilePath] ?? activeFile.content
+      : null;
+  const activeFileIsDirty =
+    !!activeFilePath &&
+    !!activeFile &&
+    drafts[activeFilePath] !== undefined &&
+    drafts[activeFilePath] !== activeFile.content;
+  const activeFileHasExternalChanges =
+    !!activeFilePath && externalChangePaths[activeFilePath] === true;
 
   const activeHeadings = useMemo(
-    () => (activeFile ? extractHeadings(activeFile.content) : []),
-    [activeFile],
+    () => (activeContent !== null ? extractHeadings(activeContent) : []),
+    [activeContent],
   );
 
   useEffect(() => {
     loadState()
       .then((state) => {
         setOutlineVisible(state.outlineVisible);
+        setZoomLevel(clampZoomLevel(state.zoomLevel));
         setOutlineInitialized(true);
       })
       .catch(() => setOutlineInitialized(true));
@@ -94,8 +134,14 @@ function App() {
 
   useEffect(() => {
     if (!outlineInitialized) return;
-    saveState({ outlineVisible }).catch(() => {});
-  }, [outlineVisible, outlineInitialized]);
+    saveState({ outlineVisible, zoomLevel }).catch(() => {});
+  }, [outlineVisible, outlineInitialized, zoomLevel]);
+
+  useEffect(() => {
+    getCurrentWebview()
+      .setZoom(zoomLevel)
+      .catch(() => {});
+  }, [zoomLevel]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -133,11 +179,44 @@ function App() {
     setPaletteOpen(true);
   }, []);
 
+  const handleClosePath = useCallback(
+    (path: string) => {
+      const file = openFiles.find((item) => item.path === path);
+      const draft = drafts[path];
+      const hasUnsavedChanges =
+        draft !== undefined && file !== undefined && draft !== file.content;
+
+      if (
+        hasUnsavedChanges &&
+        !window.confirm(
+          `Discard unsaved changes in ${file?.filename ?? "this file"}?`,
+        )
+      ) {
+        return;
+      }
+
+      setDrafts((current) => {
+        if (current[path] === undefined) return current;
+        const next = { ...current };
+        delete next[path];
+        return next;
+      });
+      setExternalChangePaths((current) => {
+        if (!current[path]) return current;
+        const next = { ...current };
+        delete next[path];
+        return next;
+      });
+      closeFile(path);
+    },
+    [closeFile, drafts, openFiles],
+  );
+
   const handleCloseFile = useCallback(() => {
     if (activeFilePath) {
-      closeFile(activeFilePath);
+      handleClosePath(activeFilePath);
     }
-  }, [activeFilePath, closeFile]);
+  }, [activeFilePath, handleClosePath]);
 
   const handleNavigateUp = useCallback(() => {
     if (!activeFilePath || openFiles.length === 0) return;
@@ -198,6 +277,79 @@ function App() {
     }
   }, [activeHeadings, activeHeadingId, jumpToHeading]);
 
+  const handleDraftChange = useCallback(
+    (value: string) => {
+      if (!activeFilePath || !activeFile) return;
+      setDrafts((current) => {
+        if (value === activeFile.content) {
+          const next = { ...current };
+          delete next[activeFilePath];
+          return next;
+        }
+
+        return { ...current, [activeFilePath]: value };
+      });
+      setExternalChangePaths((current) => {
+        if (!current[activeFilePath]) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[activeFilePath];
+        return next;
+      });
+    },
+    [activeFile, activeFilePath],
+  );
+
+  const handleSaveActiveFile = useCallback(async () => {
+    if (!activeFilePath || !activeFile) return;
+    const nextContent = draftsRef.current[activeFilePath];
+    if (nextContent === undefined || nextContent === activeFile.content) {
+      return;
+    }
+
+    savingPathsRef.current.add(activeFilePath);
+    await writeMarkdownFile(activeFilePath, nextContent);
+    updateFileContent(activeFilePath, nextContent);
+    window.setTimeout(() => {
+      savingPathsRef.current.delete(activeFilePath);
+    }, 1500);
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[activeFilePath];
+      return next;
+    });
+    setExternalChangePaths((current) => {
+      if (!current[activeFilePath]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[activeFilePath];
+      return next;
+    });
+  }, [activeFile, activeFilePath, updateFileContent]);
+
+  const handleToggleEditMode = useCallback(() => {
+    if (!activeFilePath) return;
+    setEditMode((current) => !current);
+  }, [activeFilePath]);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel((current) =>
+      roundZoomLevel(clampZoomLevel(current + ZOOM_STEP)),
+    );
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel((current) =>
+      roundZoomLevel(clampZoomLevel(current - ZOOM_STEP)),
+    );
+  }, []);
+
+  const handleZoomReset = useCallback(() => {
+    setZoomLevel(DEFAULT_ZOOM_LEVEL);
+  }, []);
+
   useKeyboardShortcuts({
     onOpenFile: handleOpenFile,
     onOpenFolder: handleOpenFolder,
@@ -207,18 +359,32 @@ function App() {
     onOpenCommandPalette: () => openPalette("all"),
     onOpenSearch: () => openPalette("search"),
     onToggleOutline: () => setOutlineVisible((current) => !current),
+    onToggleEditMode: handleToggleEditMode,
+    onSaveFile: () => {
+      handleSaveActiveFile().catch(() => {});
+    },
     onNavigateHeadingPrev: handlePreviousHeading,
     onNavigateHeadingNext: handleNextHeading,
+    onZoomIn: handleZoomIn,
+    onZoomOut: handleZoomOut,
+    onZoomReset: handleZoomReset,
   });
 
   useEffect(() => {
     const appWindow = getCurrentWebviewWindow();
     if (activeFile) {
-      appWindow.setTitle(`${activeFile.filename} — Houston 2.0`);
+      const dirtyMark = activeFileIsDirty ? " • Edited" : "";
+      appWindow.setTitle(`${activeFile.filename}${dirtyMark} — Houston 2.0`);
     } else {
       appWindow.setTitle("Houston 2.0");
     }
-  }, [activeFile]);
+  }, [activeFile, activeFileIsDirty]);
+
+  useEffect(() => {
+    if (!activeFilePath) {
+      setEditMode(false);
+    }
+  }, [activeFilePath]);
 
   useEffect(() => {
     const appWindow = getCurrentWebviewWindow();
@@ -301,6 +467,17 @@ function App() {
       unlisteners.push(
         await listen<string>("watcher:file-changed", async (event) => {
           if (isMarkdownPath(event.payload)) {
+            if (savingPathsRef.current.has(event.payload)) {
+              savingPathsRef.current.delete(event.payload);
+              return;
+            }
+            if (draftsRef.current[event.payload] !== undefined) {
+              setExternalChangePaths((current) => ({
+                ...current,
+                [event.payload]: true,
+              }));
+              return;
+            }
             await reloadFile(event.payload);
           }
         }),
@@ -342,7 +519,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (!paletteOpen || paletteQuery.trim() === "") {
+    if (!paletteOpen || paletteMode !== "search" || paletteQuery.trim() === "") {
       setSearchResults([]);
       return;
     }
@@ -370,14 +547,20 @@ function App() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [paletteOpen, paletteQuery, watchedFolder, openFiles]);
+  }, [paletteMode, paletteOpen, paletteQuery, watchedFolder, openFiles]);
 
   const paletteSections = useMemo(() => {
     const query = paletteQuery.trim().toLowerCase();
     const sections: Array<{ title: string; items: CommandPaletteItem[] }> = [];
 
     const openFileItems: CommandPaletteItem[] = openFiles
-      .filter((file) => !query || matchesQuery(file.filename, query))
+      .filter(
+        (file) =>
+          paletteMode === "all" &&
+          (!query ||
+            matchesQuery(file.filename, query) ||
+            matchesQuery(file.parentFolder, query)),
+      )
       .slice(0, 10)
       .map((file) => ({
         kind: "open-file",
@@ -392,7 +575,9 @@ function App() {
     }
 
     const headingItems: CommandPaletteItem[] = activeHeadings
-      .filter((heading) => !query || matchesQuery(heading.text, query))
+      .filter(
+        (heading) => paletteMode === "all" && (!query || matchesQuery(heading.text, query)),
+      )
       .slice(0, 12)
       .map((heading) => ({
         kind: "heading",
@@ -424,62 +609,111 @@ function App() {
       sections.push({ title: "Watched Folder", items: watchedFolderItems });
     }
 
-    const searchItems: CommandPaletteItem[] = searchResults.map((result) => ({
-      kind: "search-result",
-      id: `search:${result.path}:${result.line}:${result.headingId ?? "top"}`,
-      label: result.filename,
-      detail: `${result.parentFolder || "Search"} • ${result.snippet}`,
-      result,
-    }));
+    const searchItems: CommandPaletteItem[] =
+      paletteMode === "search"
+        ? searchResults.map((result) => ({
+            kind: "search-result",
+            id: `search:${result.path}:${result.line}:${result.headingId ?? "top"}`,
+            label: result.filename,
+            detail: `${result.parentFolder || "Search"} • ${result.snippet}`,
+            result,
+          }))
+        : [];
 
     if (searchItems.length > 0) {
       sections.push({ title: "Search Results", items: searchItems });
     }
 
-    const actions: CommandPaletteItem[] = [
-      {
-        kind: "action",
-        id: "action:open-file",
-        label: "Open file",
-        detail: "Choose markdown files to open",
-        action: "open-file",
-      },
-      {
-        kind: "action",
-        id: "action:open-folder",
-        label: "Open folder",
-        detail: "Watch a folder and search across it",
-        action: "open-folder",
-      },
-      {
-        kind: "action",
-        id: "action:outline",
-        label: outlineVisible ? "Hide outline" : "Show outline",
-        detail: "Toggle the document outline pane",
-        action: "toggle-outline",
-      },
-      {
-        kind: "action",
-        id: "action:theme-system",
-        label: "Theme: System",
-        detail: "Match the current macOS or desktop theme",
-        action: "theme-system",
-      },
-      {
-        kind: "action",
-        id: "action:theme-light",
-        label: "Theme: Light",
-        detail: "Force the light reading theme",
-        action: "theme-light",
-      },
-      {
-        kind: "action",
-        id: "action:theme-dark",
-        label: "Theme: Dark",
-        detail: "Force the dark reading theme",
-        action: "theme-dark",
-      },
-    ] as CommandPaletteItem[];
+    const actions: CommandPaletteItem[] =
+      paletteMode === "all"
+        ? ([
+            {
+              kind: "action",
+              id: "action:open-file",
+              label: "Open file",
+              detail: "Choose markdown files to open",
+              action: "open-file",
+            },
+            {
+              kind: "action",
+              id: "action:open-folder",
+              label: "Open folder",
+              detail: "Watch a folder and search across it",
+              action: "open-folder",
+            },
+            {
+              kind: "action",
+              id: "action:outline",
+              label: outlineVisible ? "Hide outline" : "Show outline",
+              detail: "Toggle the document outline pane",
+              action: "toggle-outline",
+            },
+            ...(activeFilePath
+              ? ([
+                  {
+                    kind: "action",
+                    id: "action:edit-mode",
+                    label: editMode ? "Preview markdown" : "Edit markdown",
+                    detail: editMode
+                      ? "Switch back to the rendered reader view"
+                      : "Edit the current markdown source",
+                    action: "toggle-edit-mode",
+                  },
+                  {
+                    kind: "action",
+                    id: "action:save-file",
+                    label: "Save file",
+                    detail: activeFileIsDirty
+                      ? "Write your current draft to disk"
+                      : "No unsaved changes",
+                    action: "save-file",
+                  },
+                ] as CommandPaletteItem[])
+              : []),
+            {
+              kind: "action",
+              id: "action:zoom-in",
+              label: "Zoom in",
+              detail: `Increase view size • ${Math.round(zoomLevel * 100)}%`,
+              action: "zoom-in",
+            },
+            {
+              kind: "action",
+              id: "action:zoom-out",
+              label: "Zoom out",
+              detail: `Decrease view size • ${Math.round(zoomLevel * 100)}%`,
+              action: "zoom-out",
+            },
+            {
+              kind: "action",
+              id: "action:zoom-reset",
+              label: "Reset zoom",
+              detail: `Return to 100% view • ${Math.round(zoomLevel * 100)}%`,
+              action: "zoom-reset",
+            },
+            {
+              kind: "action",
+              id: "action:theme-system",
+              label: "Theme: System",
+              detail: "Match the current macOS or desktop theme",
+              action: "theme-system",
+            },
+            {
+              kind: "action",
+              id: "action:theme-light",
+              label: "Theme: Light",
+              detail: "Force the light reading theme",
+              action: "theme-light",
+            },
+            {
+              kind: "action",
+              id: "action:theme-dark",
+              label: "Theme: Dark",
+              detail: "Force the dark reading theme",
+              action: "theme-dark",
+            },
+          ] as CommandPaletteItem[])
+        : [];
 
     const filteredActions = actions.filter(
       (item) => !query || matchesQuery(`${item.label} ${item.detail}`, query),
@@ -492,12 +726,16 @@ function App() {
     return sections;
   }, [
     activeHeadings,
+    activeFileIsDirty,
+    activeFilePath,
+    editMode,
     openFiles,
     outlineVisible,
     paletteMode,
     paletteQuery,
     searchResults,
     watchedFilePaths,
+    zoomLevel,
   ]);
 
   const handleActivatePaletteItem = useCallback(
@@ -530,6 +768,21 @@ function App() {
         case "toggle-outline":
           setOutlineVisible((current) => !current);
           break;
+        case "toggle-edit-mode":
+          handleToggleEditMode();
+          break;
+        case "save-file":
+          await handleSaveActiveFile();
+          break;
+        case "zoom-in":
+          handleZoomIn();
+          break;
+        case "zoom-out":
+          handleZoomOut();
+          break;
+        case "zoom-reset":
+          handleZoomReset();
+          break;
         case "theme-system":
           setThemePreference("system");
           break;
@@ -544,6 +797,11 @@ function App() {
     [
       handleOpenFile,
       handleOpenFolder,
+      handleSaveActiveFile,
+      handleToggleEditMode,
+      handleZoomIn,
+      handleZoomOut,
+      handleZoomReset,
       jumpToHeading,
       openFile,
       setThemePreference,
@@ -556,26 +814,32 @@ function App() {
         files={openFiles}
         activeFilePath={activeFilePath}
         onSelect={setActiveFilePath}
-        onClose={closeFile}
+        onClose={handleClosePath}
         themePreference={themePreference}
         onThemeChange={setThemePreference}
       />
 
       <div className="main-shell">
         <ReaderPane
-          content={activeFile?.content ?? null}
+          content={activeContent}
           filePath={activeFilePath}
           filename={activeFile?.filename ?? null}
           headings={activeHeadings}
           activeHeadingId={activeHeadingId}
           jumpTarget={jumpTarget}
           outlineVisible={outlineVisible}
+          isEditing={editMode}
+          isDirty={activeFileIsDirty}
+          hasExternalChanges={activeFileHasExternalChanges}
           scrollPositions={scrollPositions}
           onScroll={updateScrollPosition}
           onActiveHeadingChange={setActiveHeadingId}
           onJumpHandled={handleJumpHandled}
+          onContentChange={handleDraftChange}
           onOpenCommandPalette={() => openPalette("all")}
           onOpenSearch={() => openPalette("search")}
+          onSave={handleSaveActiveFile}
+          onToggleEditMode={handleToggleEditMode}
           onToggleOutline={() => setOutlineVisible((current) => !current)}
         />
 

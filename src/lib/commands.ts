@@ -5,6 +5,13 @@ export async function readMarkdownFile(path: string): Promise<string> {
   return invoke<string>("read_markdown_file", { path });
 }
 
+export async function writeMarkdownFile(
+  path: string,
+  content: string,
+): Promise<void> {
+  return invoke<void>("write_markdown_file", { path, content });
+}
+
 export async function listMarkdownFiles(dir: string): Promise<string[]> {
   return invoke<string[]>("list_markdown_files", { dir });
 }

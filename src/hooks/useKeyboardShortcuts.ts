@@ -9,8 +9,13 @@ interface ShortcutHandlers {
   onOpenCommandPalette: () => void;
   onOpenSearch: () => void;
   onToggleOutline: () => void;
+  onToggleEditMode: () => void;
+  onSaveFile: () => void;
   onNavigateHeadingPrev: () => void;
   onNavigateHeadingNext: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onZoomReset: () => void;
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -41,12 +46,27 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       } else if (meta && e.key.toLowerCase() === "k") {
         e.preventDefault();
         handlers.onOpenCommandPalette();
-      } else if (meta && e.shiftKey && e.key.toLowerCase() === "f") {
+      } else if (meta && e.key.toLowerCase() === "f") {
         e.preventDefault();
         handlers.onOpenSearch();
       } else if (meta && e.key === "\\") {
         e.preventDefault();
         handlers.onToggleOutline();
+      } else if (meta && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        handlers.onToggleEditMode();
+      } else if (meta && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        handlers.onSaveFile();
+      } else if (meta && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        handlers.onZoomIn();
+      } else if (meta && e.key === "-") {
+        e.preventDefault();
+        handlers.onZoomOut();
+      } else if (meta && e.key === "0") {
+        e.preventDefault();
+        handlers.onZoomReset();
       } else if (meta && e.key === "w") {
         e.preventDefault();
         handlers.onCloseFile();

@@ -41,6 +41,7 @@ pub fn run() {
         .manage(PendingOpenFiles(Mutex::new(collect_launch_paths())))
         .invoke_handler(tauri::generate_handler![
             commands::read_markdown_file,
+            commands::write_markdown_file,
             commands::watch_folder,
             commands::stop_watcher,
             commands::list_markdown_files,

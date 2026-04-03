@@ -54,6 +54,11 @@ export type CommandPaletteItem =
         | "open-file"
         | "open-folder"
         | "toggle-outline"
+        | "toggle-edit-mode"
+        | "save-file"
+        | "zoom-in"
+        | "zoom-out"
+        | "zoom-reset"
         | "theme-system"
         | "theme-light"
         | "theme-dark";

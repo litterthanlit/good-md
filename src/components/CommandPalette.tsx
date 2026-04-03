@@ -91,15 +91,21 @@ export default function CommandPalette({
             }}
             placeholder={
               mode === "search"
-                ? "Search the current folder or open files"
-                : "Jump to files, headings, search results, or commands"
+                ? "Search filenames and document text"
+                : "Go to files, headings, or app actions"
             }
           />
         </div>
 
         <div className="palette-results">
           {sections.length === 0 ? (
-            <div className="palette-empty">No results</div>
+            <div className="palette-empty">
+              {mode === "search"
+                ? query.trim()
+                  ? "No matching documents"
+                  : "Start typing to search the current folder or your open files"
+                : "No matching destinations or commands"}
+            </div>
           ) : (
             sections.map((section) => (
               <div key={section.title} className="palette-section">

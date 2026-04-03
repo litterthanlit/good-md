@@ -8,6 +8,7 @@ export interface PersistedState {
   scrollPositions: Record<string, number>;
   themePreference: ThemePreference;
   outlineVisible: boolean;
+  zoomLevel: number;
 }
 
 const STORE_FILE = "houston-state.json";
@@ -29,6 +30,7 @@ function getDefaultState(): PersistedState {
     scrollPositions: {},
     themePreference: "system",
     outlineVisible: true,
+    zoomLevel: 1,
   };
 }
 

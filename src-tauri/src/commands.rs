@@ -167,6 +167,11 @@ pub async fn read_markdown_file(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn write_markdown_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content).map_err(|e| format!("Failed to write {}: {}", path, e))
+}
+
+#[tauri::command]
 pub async fn list_markdown_files(dir: String) -> Result<Vec<String>, String> {
     Ok(watcher::scan_directory(&dir))
 }
