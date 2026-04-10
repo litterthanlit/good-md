@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Houston — Logo Concepts</title>
+  <style>
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist Mono';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --font-sans: 'Geist', -apple-system, sans-serif;
+      --font-mono: 'Geist Mono', monospace;
+      --gray-100: #f5f5f5;
+      --gray-200: #e5e5e5;
+      --gray-400: #a3a3a3;
+      --gray-500: #737373;
+      --gray-950: #0a0a0a;
+    }
+
+    html {
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      background: #fff;
+      color: var(--gray-950);
+    }
+
+    body { padding: 80px 40px; max-width: 1100px; margin: 0 auto; }
+
+    h1 {
+      font-size: 14px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--gray-400);
+      margin-bottom: 64px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 48px;
+    }
+
+    .concept {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .concept-label {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .mark {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .lockup {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .lockup svg { width: 32px; height: 32px; }
+
+    .lockup span {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--gray-200);
+      margin: 64px 0;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 40px;
+    }
+
+    .usage-row {
+      display: flex;
+      align-items: center;
+      gap: 64px;
+      flex-wrap: wrap;
+    }
+
+    .usage-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .usage-item .label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--gray-400);
+    }
+
+    .dark-bg {
+      background: var(--gray-950);
+      border-radius: 12px;
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .dark-bg span {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .favicon-bg {
+      width: 48px;
+      height: 48px;
+      background: var(--gray-950);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; gap: 56px; }
+      .usage-row { flex-direction: column; gap: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Houston Logo Concepts</h1>
+
+  <div class="grid">
+
+    <!-- Concept A: Markdown H — the H is formed by two vertical strokes connected by a crossbar, with the right stroke having a subtle downward notch like markdown's # -->
+    <div class="concept">
+      <div class="concept-label">A — Markdown H</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <path d="M38 36v48M82 36v48M38 60h44" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M82 36l-10 12" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <path d="M38 36v48M82 36v48M38 60h44" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M82 36l-10 12" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+    <!-- Concept B: Document Reader — rounded rect with two horizontal lines suggesting text, and a folded corner -->
+    <div class="concept">
+      <div class="concept-label">B — Document Mark</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <rect x="32" y="30" width="42" height="60" rx="4" stroke="#fff" stroke-width="5"/>
+          <path d="M62 30v16h16" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="42" y1="54" x2="64" y2="54" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          <line x1="42" y1="66" x2="56" y2="66" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          <!-- Reading eye -->
+          <circle cx="82" cy="74" r="10" stroke="#fff" stroke-width="4"/>
+          <circle cx="82" cy="74" r="3.5" fill="#fff"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <rect x="32" y="30" width="42" height="60" rx="4" stroke="#fff" stroke-width="5"/>
+          <path d="M62 30v16h16" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          <line x1="42" y1="54" x2="64" y2="54" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          <line x1="42" y1="66" x2="56" y2="66" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="82" cy="74" r="10" stroke="#fff" stroke-width="4"/>
+          <circle cx="82" cy="74" r="3.5" fill="#fff"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+    <!-- Concept C: Hash Bracket — a stylized # (markdown heading) morphed into an H shape with geometric precision -->
+    <div class="concept">
+      <div class="concept-label">C — Hash Mark</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <!-- Stylized # that reads as H -->
+          <line x1="46" y1="32" x2="42" y2="88" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="78" y1="32" x2="74" y2="88" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="34" y1="52" x2="86" y2="52" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="32" y1="68" x2="84" y2="68" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <line x1="46" y1="32" x2="42" y2="88" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="78" y1="32" x2="74" y2="88" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="34" y1="52" x2="86" y2="52" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+          <line x1="32" y1="68" x2="84" y2="68" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+    <!-- Concept D: Minimal Monogram — ultra-clean single-stroke H in a circle -->
+    <div class="concept">
+      <div class="concept-label">D — Monogram</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <circle cx="60" cy="60" r="50" fill="#0a0a0a"/>
+          <path d="M42 38v44M78 38v44M42 60h36" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <circle cx="60" cy="60" r="50" fill="#0a0a0a"/>
+          <path d="M42 38v44M78 38v44M42 60h36" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+    <!-- Concept E: Stacked Lines — abstract representation of markdown text lines forming an H negative space -->
+    <div class="concept">
+      <div class="concept-label">E — Text Lines</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <!-- Top group -->
+          <line x1="32" y1="38" x2="52" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="38" x2="88" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="52" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="50" x2="88" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <!-- Bridge -->
+          <line x1="32" y1="60" x2="88" y2="60" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <!-- Bottom group -->
+          <line x1="32" y1="70" x2="52" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="70" x2="88" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="82" x2="52" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="82" x2="88" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <line x1="32" y1="38" x2="52" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="38" x2="88" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="52" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="50" x2="88" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="60" x2="88" y2="60" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="70" x2="52" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="70" x2="88" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="82" x2="52" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="82" x2="88" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+    <!-- Concept F: Rocket Cursor — a minimal rocket/cursor shape referencing "Houston, we have launch" -->
+    <div class="concept">
+      <div class="concept-label">F — Launch Mark</div>
+      <div class="mark">
+        <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <!-- Rocket / cursor pointing up -->
+          <path d="M60 30L60 74" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M60 30L46 50" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M60 30L74 50" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Exhaust / base lines -->
+          <path d="M48 82h24" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <path d="M54 90h12" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="lockup">
+        <svg viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <path d="M60 30L60 74" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+          <path d="M60 30L46 50" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M60 30L74 50" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M48 82h24" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <path d="M54 90h12" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+
+  </div>
+
+  <hr>
+
+  <!-- Usage examples with recommended concept -->
+  <div class="section-label">Usage — Concept E (recommended)</div>
+  <div class="usage-row">
+    <div class="usage-item">
+      <div class="label">Favicon</div>
+      <div class="favicon-bg">
+        <svg width="28" height="28" viewBox="0 0 120 120" fill="none">
+          <line x1="32" y1="38" x2="52" y2="38" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="68" y1="38" x2="88" y2="38" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="52" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="68" y1="50" x2="88" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="32" y1="60" x2="88" y2="60" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="32" y1="70" x2="52" y2="70" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="68" y1="70" x2="88" y2="70" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="32" y1="82" x2="52" y2="82" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+          <line x1="68" y1="82" x2="88" y2="82" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <div class="usage-item">
+      <div class="label">Light lockup</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <svg width="28" height="28" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#0a0a0a"/>
+          <line x1="32" y1="38" x2="52" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="38" x2="88" y2="38" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="52" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="50" x2="88" y2="50" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="60" x2="88" y2="60" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="70" x2="52" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="70" x2="88" y2="70" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="82" x2="52" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="82" x2="88" y2="82" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+        <span style="font-size:18px;font-weight:600;letter-spacing:-0.02em;">Houston</span>
+      </div>
+    </div>
+
+    <div class="usage-item">
+      <div class="label">Dark lockup</div>
+      <div class="dark-bg">
+        <svg width="28" height="28" viewBox="0 0 120 120" fill="none">
+          <rect x="10" y="10" width="100" height="100" rx="22" fill="#fff"/>
+          <line x1="32" y1="38" x2="52" y2="38" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="38" x2="88" y2="38" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="50" x2="52" y2="50" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="50" x2="88" y2="50" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="60" x2="88" y2="60" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="70" x2="52" y2="70" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="70" x2="88" y2="70" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="32" y1="82" x2="52" y2="82" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+          <line x1="68" y1="82" x2="88" y2="82" stroke="#0a0a0a" stroke-width="5" stroke-linecap="round"/>
+        </svg>
+        <span>Houston</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

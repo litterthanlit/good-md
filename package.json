@@ -1,5 +1,6 @@
 {
   "name": "houston",
+  "description": "A native macOS markdown reader built with Tauri v2 and React 19. Lightweight, fast, and beautiful.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
