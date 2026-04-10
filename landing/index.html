@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Houston — A Markdown Reader for macOS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <style>
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/Geist-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist Mono';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/GeistMono-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Geist Mono';
+      src: url('https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/GeistMono-Medium.woff2') format('woff2');
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    /* ─── Reset ─── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ─── Tokens ─── */
+    :root {
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+
+      --gray-50: #fafafa;
+      --gray-100: #f5f5f5;
+      --gray-200: #e5e5e5;
+      --gray-300: #d4d4d4;
+      --gray-400: #a3a3a3;
+      --gray-500: #737373;
+      --gray-600: #525252;
+      --gray-700: #404040;
+      --gray-800: #262626;
+      --gray-900: #171717;
+      --gray-950: #0a0a0a;
+
+      --bg: #ffffff;
+      --fg: var(--gray-950);
+      --border: var(--gray-200);
+      --muted: var(--gray-500);
+      --subtle: var(--gray-100);
+
+      --radius: 8px;
+      --radius-lg: 12px;
+
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html {
+      font-family: var(--font-sans);
+      color: var(--fg);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Nav ─── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 24px;
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--fg);
+    }
+
+    .nav-logo-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-link {
+      font-size: 14px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .nav-link:hover {
+      color: var(--fg);
+      background: var(--subtle);
+    }
+
+    .nav-cta {
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      background: var(--gray-950);
+      text-decoration: none;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      transition: background 0.15s;
+      margin-left: 4px;
+    }
+
+    .nav-cta:hover {
+      background: var(--gray-800);
+    }
+
+    /* ─── Hero ─── */
+    .hero {
+      padding: 160px 24px 80px;
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px 5px 6px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      background: var(--bg);
+      animation: fadeUp 0.8s var(--ease) both;
+    }
+
+    .hero-badge-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 56px);
+      font-weight: 500;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      color: var(--fg);
+      margin-bottom: 24px;
+      animation: fadeUp 0.8s var(--ease) 0.05s both;
+    }
+
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--gray-950) 0%, var(--gray-400) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 40px;
+      animation: fadeUp 0.8s var(--ease) 0.1s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      animation: fadeUp 0.8s var(--ease) 0.15s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: var(--gray-950);
+      color: white;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.15s;
+    }
+
+    .btn-primary:hover {
+      background: var(--gray-800);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: var(--bg);
+      color: var(--fg);
+      font-size: 15px;
+      font-weight: 500;
+      font-family: var(--font-sans);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--subtle);
+      border-color: var(--gray-300);
+      transform: translateY(-1px);
+    }
+
+    .btn-icon {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+
+    /* ─── App Preview ─── */
+    .preview {
+      max-width: 960px;
+      margin: 0 auto 120px;
+      padding: 0 24px;
+      animation: fadeUp 0.8s var(--ease) 0.25s both;
+    }
+
+    .preview-window {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      background: var(--bg);
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.03),
+        0 2px 4px rgba(0,0,0,0.02),
+        0 12px 24px rgba(0,0,0,0.06);
+    }
+
+    .preview-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--gray-200);
+    }
+
+    .preview-body {
+      display: flex;
+      min-height: 420px;
+    }
+
+    .preview-sidebar {
+      width: 220px;
+      border-right: 1px solid var(--border);
+      padding: 12px 0;
+      background: var(--gray-50);
+      flex-shrink: 0;
+    }
+
+    .preview-sidebar-item {
+      padding: 8px 16px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: default;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      transition: background 0.1s;
+    }
+
+    .preview-sidebar-item.active {
+      background: var(--bg);
+      color: var(--fg);
+      border-left: 2px solid var(--gray-950);
+      padding-left: 14px;
+    }
+
+    .preview-sidebar-item .file-name {
+      font-weight: 500;
+    }
+
+    .preview-sidebar-item .file-path {
+      font-size: 11px;
+      color: var(--gray-400);
+      font-family: var(--font-mono);
+    }
+
+    .preview-content {
+      flex: 1;
+      padding: 40px 48px;
+      overflow: hidden;
+    }
+
+    .preview-content h2 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      color: var(--fg);
+    }
+
+    .preview-content .meta {
+      font-size: 13px;
+      color: var(--gray-400);
+      margin-bottom: 24px;
+      font-family: var(--font-mono);
+    }
+
+    .preview-content p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--gray-600);
+      margin-bottom: 16px;
+    }
+
+    .preview-content .code-block {
+      background: var(--gray-50);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--gray-700);
+      margin-top: 20px;
+      overflow: hidden;
+    }
+
+    .preview-content .code-block .kw { color: var(--gray-950); font-weight: 500; }
+    .preview-content .code-block .str { color: var(--gray-500); }
+    .preview-content .code-block .cm { color: var(--gray-400); }
+
+    /* ─── Features ─── */
+    .features {
+      max-width: 960px;
+      margin: 0 auto 120px;
+      padding: 0 24px;
+    }
+
+    .features-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .features-header .label {
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .features-header h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .feature-card {
+      background: var(--bg);
+      padding: 32px;
+      transition: background 0.2s;
+    }
+
+    .feature-card:hover {
+      background: var(--gray-50);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 18px;
+      background: var(--gray-50);
+    }
+
+    .feature-card h3 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    /* ─── Specs ─── */
+    .specs {
+      max-width: 960px;
+      margin: 0 auto 120px;
+      padding: 0 24px;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .specs-content h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    .specs-content p {
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--muted);
+      margin-bottom: 32px;
+    }
+
+    .specs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spec-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .spec-bullet {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gray-300);
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+
+    .spec-item span {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--gray-600);
+    }
+
+    .spec-item strong {
+      color: var(--fg);
+      font-weight: 500;
+    }
+
+    .specs-visual {
+      background: var(--gray-50);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .specs-visual .size-label {
+      font-family: var(--font-mono);
+      font-size: 64px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--fg);
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .specs-visual .size-unit {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .specs-visual .size-compare {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--gray-400);
+    }
+
+    .bar-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .bar-label {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      width: 72px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--gray-200);
+    }
+
+    .bar.houston {
+      width: 7%;
+      background: var(--gray-950);
+    }
+
+    .bar.electron {
+      width: 100%;
+      background: var(--gray-200);
+    }
+
+    /* ─── CTA ─── */
+    .cta {
+      text-align: center;
+      padding: 80px 24px 120px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .cta h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+
+    .cta p {
+      font-size: 15px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .cta-install {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 24px;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--gray-600);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+
+    .cta-install:hover {
+      border-color: var(--gray-300);
+      background: var(--gray-100);
+    }
+
+    .cta-install .prefix {
+      color: var(--gray-400);
+      user-select: none;
+    }
+
+    .cta-install .copy-hint {
+      font-size: 11px;
+      color: var(--gray-400);
+      font-family: var(--font-sans);
+      padding: 2px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-left: 8px;
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    footer .footer-left {
+      font-size: 13px;
+      color: var(--gray-400);
+    }
+
+    footer .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    footer .footer-links a {
+      font-size: 13px;
+      color: var(--gray-400);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    footer .footer-links a:hover {
+      color: var(--fg);
+    }
+
+    /* ─── Animations ─── */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Scroll-triggered fade */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 768px) {
+      .hero { padding: 120px 20px 60px; }
+
+      .hero h1 { font-size: 36px; }
+
+      .hero-actions {
+        flex-direction: column;
+        width: 100%;
+      }
+
+      .btn-primary, .btn-secondary {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .specs-grid {
+        grid-template-columns: 1fr;
+        gap: 32px;
+      }
+
+      .preview-sidebar { display: none; }
+
+      .preview-content { padding: 24px; }
+
+      .nav-links { display: none; }
+
+      footer {
+        flex-direction: column;
+        gap: 16px;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Nav ─── -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-icon">
+          <svg width="64" height="64" viewBox="0 0 120 120" fill="none">
+            <line x1="22" y1="28" x2="50" y2="28" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="70" y1="28" x2="98" y2="28" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="22" y1="46" x2="50" y2="46" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="70" y1="46" x2="98" y2="46" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="22" y1="60" x2="98" y2="60" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="22" y1="74" x2="50" y2="74" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="70" y1="74" x2="98" y2="74" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="22" y1="92" x2="50" y2="92" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+            <line x1="70" y1="92" x2="98" y2="92" stroke="var(--gray-950)" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+        </div>
+    </a>
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#specs" class="nav-link">Specs</a>
+      <a href="https://github.com/litterthanlit/good-md" class="nav-link">GitHub</a>
+      <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="nav-cta">Download</a>
+    </div>
+  </nav>
+
+  <!-- ─── Hero ─── -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="hero-badge-dot">v2</span>
+      <span>Houston 2.0 — now available for macOS</span>
+    </div>
+    <h1><span class="gradient-text">Read markdown,<br>beautifully.</span></h1>
+    <p>A native macOS reader with session persistence, folder watching, scroll memory, and full GFM support — all in 3.3 MB.</p>
+    <div class="hero-actions">
+      <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="btn-primary">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 2v9m0 0l-3-3m3 3l3-3M3 13h10"/>
+        </svg>
+        Download for Mac
+      </a>
+      <a href="https://github.com/litterthanlit/good-md" class="btn-secondary">
+        <svg class="btn-icon" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        View Source
+      </a>
+    </div>
+  </section>
+
+  <!-- ─── App Preview ─── -->
+  <section class="preview fade-in">
+    <div class="preview-window">
+      <div class="preview-titlebar">
+        <div class="preview-dot"></div>
+        <div class="preview-dot"></div>
+        <div class="preview-dot"></div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-sidebar">
+          <div class="preview-sidebar-item active">
+            <span class="file-name">README.md</span>
+            <span class="file-path">~/projects</span>
+          </div>
+          <div class="preview-sidebar-item">
+            <span class="file-name">CHANGELOG.md</span>
+            <span class="file-path">~/projects</span>
+          </div>
+          <div class="preview-sidebar-item">
+            <span class="file-name">ARCHITECTURE.md</span>
+            <span class="file-path">~/docs</span>
+          </div>
+        </div>
+        <div class="preview-content">
+          <h2>Getting Started</h2>
+          <div class="meta">Last modified 2 hours ago</div>
+          <p>Houston renders your markdown with native macOS performance. Open any <code>.md</code> file by dragging it into the window or pressing <strong>&#8984;O</strong>.</p>
+          <p>Supports GitHub Flavored Markdown with tables, task lists, footnotes, and syntax-highlighted code blocks.</p>
+          <div class="code-block">
+<span class="kw">const</span> reader = <span class="kw">new</span> Houston();<br>
+reader.open(<span class="str">"./README.md"</span>);<br>
+<span class="cm">// That's it. Just read.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Features ─── -->
+  <section class="features fade-in" id="features">
+    <div class="features-header">
+      <div class="label">Features</div>
+      <h2>Everything in 2.0.<br>Nothing you don't need.</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="3" y="3" width="14" height="14" rx="2"/>
+            <path d="M7 7h6M7 10h4"/>
+          </svg>
+        </div>
+        <h3>Full GFM + MDX</h3>
+        <p>Tables, task lists, footnotes, strikethrough, autolinks — plus MDX support for .md, .mdx, and .markdown files.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 6l4 4-4 4M10 14h6"/>
+          </svg>
+        </div>
+        <h3>Syntax Highlighting</h3>
+        <p>190+ languages with automatic detection via highlight.js. Code blocks look as good as your editor.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M5 17V3l10 7-10 7z"/>
+          </svg>
+        </div>
+        <h3>Session Persistence</h3>
+        <p>Remembers your open files, active document, and scroll positions. Pick up exactly where you left off.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 4v12h12"/>
+            <path d="M4 16l4-4 2 2 3-3 3-3"/>
+          </svg>
+        </div>
+        <h3>Folder Watching</h3>
+        <p>Open entire folders with <code>&#8984;Shift+O</code>. File system watcher detects new, changed, and removed files in real time.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M3 10h14M10 3v14"/>
+          </svg>
+        </div>
+        <h3>Drag & Drop</h3>
+        <p>Drop files right into the window with visual feedback. Multi-file support with a clean sidebar to switch between docs.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="3" y="7" width="6" height="6" rx="1"/>
+            <rect x="11" y="7" width="6" height="6" rx="1"/>
+            <rect x="3" y="3" width="14" height="2" rx="1"/>
+          </svg>
+        </div>
+        <h3>Keyboard First</h3>
+        <p><code>&#8984;O</code> open. <code>&#8984;Shift+O</code> folder. <code>&#8984;W</code> close. Arrow keys navigate. Built for flow.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.05 5.05l1.41 1.41M13.54 13.54l1.41 1.41M5.05 14.95l1.41-1.41M13.54 6.46l1.41-1.41"/>
+          </svg>
+        </div>
+        <h3>Light & Dark</h3>
+        <p>Follows your system appearance automatically. Carefully tuned palettes for both modes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <circle cx="10" cy="10" r="7"/>
+            <path d="M10 6v4l2.5 2.5"/>
+          </svg>
+        </div>
+        <h3>Instant Launch</h3>
+        <p>Native Tauri v2 + WebKit. Opens in under a second. ~30 MB RAM at idle — not 300.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <rect x="3" y="3" width="14" height="14" rx="2"/>
+            <path d="M3 8h14"/>
+            <path d="M8 8v9"/>
+          </svg>
+        </div>
+        <h3>Scroll Memory</h3>
+        <p>Remembers your scroll position per file. Switch between documents and return to exactly where you were.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Specs ─── -->
+  <section class="specs fade-in" id="specs">
+    <div class="specs-grid">
+      <div class="specs-content">
+        <h2>Lightweight by design.</h2>
+        <p>Built on Tauri with native macOS WebKit — no bundled browser engine. Houston is the markdown reader your Mac deserves.</p>
+        <div class="specs-list">
+          <div class="spec-item">
+            <div class="spec-bullet"></div>
+            <span><strong>~12 MB</strong> total application size</span>
+          </div>
+          <div class="spec-item">
+            <div class="spec-bullet"></div>
+            <span><strong>~30 MB</strong> RAM at idle — not 300</span>
+          </div>
+          <div class="spec-item">
+            <div class="spec-bullet"></div>
+            <span><strong>Native</strong> macOS rendering via WebKit</span>
+          </div>
+          <div class="spec-item">
+            <div class="spec-bullet"></div>
+            <span><strong>Rust</strong> backend for file operations</span>
+          </div>
+          <div class="spec-item">
+            <div class="spec-bullet"></div>
+            <span><strong>React 19</strong> with Vite for the interface</span>
+          </div>
+        </div>
+      </div>
+      <div class="specs-visual">
+        <div class="size-label">~12</div>
+        <div class="size-unit">MB on disk</div>
+        <div class="size-compare">
+          vs. typical Electron apps
+          <div class="bar-container">
+            <div class="bar-row">
+              <span class="bar-label">Houston</span>
+              <div class="bar houston"></div>
+            </div>
+            <div class="bar-row">
+              <span class="bar-label">Electron</span>
+              <div class="bar electron"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ─── -->
+  <section class="cta fade-in" id="download">
+    <h2>Start reading.</h2>
+    <p>Houston is free and open source. Download the latest release or build from source.</p>
+    <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="btn-primary" style="margin-bottom:12px;">
+      <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 2v9m0 0l-3-3m3 3l3-3M3 13h10"/>
+      </svg>
+      Download Houston 2.0
+    </a>
+    <div style="font-size:13px;color:var(--gray-400);font-family:var(--font-mono);">macOS &middot; Apple Silicon &middot; 3.3 MB</div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer>
+    <div class="footer-left">Houston &mdash; A Good MD project.</div>
+    <div class="footer-links">
+      <a href="https://github.com/litterthanlit/good-md">GitHub</a>
+      <a href="#">Releases</a>
+      <a href="#">License</a>
+    </div>
+  </footer>
+
+  <!-- ─── Scroll Reveal ─── -->
+  <script>
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+
+    document.querySelectorAll('.fade-in').forEach((el) => observer.observe(el));
+  </script>
+
+</body>
+</html>
