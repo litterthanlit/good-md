@@ -11,6 +11,7 @@ export interface PersistedState {
   zoomLevel: number;
 }
 
+// Keep the original store filename so the Markwell rename preserves local state.
 const STORE_FILE = "houston-state.json";
 
 let storeInstance: Store | null = null;

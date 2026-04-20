@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Sidebar from "./components/Sidebar";
 import ReaderPane from "./components/ReaderPane";
+import PdfPane from "./components/PdfPane";
 import OutlinePane from "./components/OutlinePane";
 import CommandPalette from "./components/CommandPalette";
 import { useFileManager } from "./hooks/useFileManager";
@@ -12,18 +13,31 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useThemePreference } from "./hooks/useThemePreference";
 import {
   consumePendingOpenFiles,
+  getFileMetadata,
   writeMarkdownFile,
+  writeFileBytes,
   searchMarkdownFiles,
   stopWatcher,
   watchFolder,
 } from "./lib/commands";
+import {
+  DOCUMENT_EXTENSIONS,
+  isDocumentPath,
+  isPdfPath,
+} from "./lib/documents";
 import { extractHeadings } from "./lib/markdown";
+import {
+  applyPdfEdits,
+  createEmptyPdfEditState,
+  hasPdfEdits,
+  searchPdfFiles,
+  type PdfTextCacheEntry,
+} from "./lib/pdf";
 import { loadState, saveState } from "./lib/store";
-import type { CommandPaletteItem, SearchResult } from "./lib/types";
+import type { CommandPaletteItem, PdfEditState, SearchResult } from "./lib/types";
 import "./styles/theme.css";
 import "./App.css";
 
-const MD_EXTENSIONS = ["md", "mdx", "markdown"];
 const NARROW_LAYOUT_WIDTH = 1180;
 const DEFAULT_ZOOM_LEVEL = 1;
 const MIN_ZOOM_LEVEL = 0.8;
@@ -36,11 +50,6 @@ function clampZoomLevel(value: number) {
 
 function roundZoomLevel(value: number) {
   return Math.round(value * 100) / 100;
-}
-
-function isMarkdownPath(path: string) {
-  const extension = path.split(".").pop()?.toLowerCase();
-  return extension ? MD_EXTENSIONS.includes(extension) : false;
 }
 
 function fileLabel(path: string) {
@@ -73,6 +82,7 @@ function App() {
     setWatchedFolder,
     updateScrollPosition,
     updateFileContent,
+    updatePdfBytes,
   } = useFileManager();
 
   const [dragOver, setDragOver] = useState(false);
@@ -83,6 +93,10 @@ function App() {
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [pdfEditStates, setPdfEditStates] = useState<Record<string, PdfEditState>>({});
+  const [pdfPageByPath, setPdfPageByPath] = useState<Record<string, number>>({});
+  const [pdfPageCountByPath, setPdfPageCountByPath] = useState<Record<string, number>>({});
+  const [pdfSearchPageByPath, setPdfSearchPageByPath] = useState<Record<string, number | null>>({});
   const [externalChangePaths, setExternalChangePaths] = useState<
     Record<string, true>
   >({});
@@ -99,28 +113,49 @@ function App() {
   );
   const { themePreference, setThemePreference } = useThemePreference();
   const draftsRef = useRef(drafts);
+  const pdfEditStatesRef = useRef(pdfEditStates);
+  const pdfTextCacheRef = useRef<Map<string, PdfTextCacheEntry>>(new Map());
   const savingPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     draftsRef.current = drafts;
   }, [drafts]);
 
-  const activeContent =
-    activeFilePath && activeFile
+  useEffect(() => {
+    pdfEditStatesRef.current = pdfEditStates;
+  }, [pdfEditStates]);
+
+  const activeMarkdownContent =
+    activeFilePath && activeFile?.kind === "markdown"
       ? drafts[activeFilePath] ?? activeFile.content
       : null;
-  const activeFileIsDirty =
+  const activeMarkdownIsDirty =
     !!activeFilePath &&
-    !!activeFile &&
+    activeFile?.kind === "markdown" &&
     drafts[activeFilePath] !== undefined &&
     drafts[activeFilePath] !== activeFile.content;
+  const activePdfEditState =
+    activeFilePath && activeFile?.kind === "pdf"
+      ? pdfEditStates[activeFilePath] ?? createEmptyPdfEditState()
+      : createEmptyPdfEditState();
+  const activePdfIsDirty = activeFile?.kind === "pdf" && hasPdfEdits(activePdfEditState);
+  const activeFileIsDirty = activeMarkdownIsDirty || activePdfIsDirty;
   const activeFileHasExternalChanges =
     !!activeFilePath && externalChangePaths[activeFilePath] === true;
 
   const activeHeadings = useMemo(
-    () => (activeContent !== null ? extractHeadings(activeContent) : []),
-    [activeContent],
+    () =>
+      activeMarkdownContent !== null ? extractHeadings(activeMarkdownContent) : [],
+    [activeMarkdownContent],
   );
+  const activePdfPageIndex =
+    activeFilePath && activeFile?.kind === "pdf" ? pdfPageByPath[activeFilePath] ?? 0 : 0;
+  const activePdfPageCount =
+    activeFilePath && activeFile?.kind === "pdf" ? pdfPageCountByPath[activeFilePath] ?? 0 : 0;
+  const activePdfSearchPage =
+    activeFilePath && activeFile?.kind === "pdf"
+      ? pdfSearchPageByPath[activeFilePath] ?? null
+      : null;
 
   useEffect(() => {
     loadState()
@@ -156,7 +191,7 @@ function App() {
   const handleOpenFile = useCallback(async () => {
     const selected = await open({
       multiple: true,
-      filters: [{ name: "Markdown", extensions: MD_EXTENSIONS }],
+      filters: [{ name: "Documents", extensions: [...DOCUMENT_EXTENSIONS] }],
     });
     if (selected) {
       const paths = Array.isArray(selected) ? selected : [selected];
@@ -184,7 +219,9 @@ function App() {
       const file = openFiles.find((item) => item.path === path);
       const draft = drafts[path];
       const hasUnsavedChanges =
-        draft !== undefined && file !== undefined && draft !== file.content;
+        file?.kind === "markdown"
+          ? draft !== undefined && draft !== file.content
+          : hasPdfEdits(pdfEditStates[path]);
 
       if (
         hasUnsavedChanges &&
@@ -207,9 +244,15 @@ function App() {
         delete next[path];
         return next;
       });
+      setPdfEditStates((current) => {
+        if (!current[path]) return current;
+        const next = { ...current };
+        delete next[path];
+        return next;
+      });
       closeFile(path);
     },
-    [closeFile, drafts, openFiles],
+    [closeFile, drafts, openFiles, pdfEditStates],
   );
 
   const handleCloseFile = useCallback(() => {
@@ -279,7 +322,7 @@ function App() {
 
   const handleDraftChange = useCallback(
     (value: string) => {
-      if (!activeFilePath || !activeFile) return;
+      if (!activeFilePath || activeFile?.kind !== "markdown") return;
       setDrafts((current) => {
         if (value === activeFile.content) {
           const next = { ...current };
@@ -303,22 +346,43 @@ function App() {
 
   const handleSaveActiveFile = useCallback(async () => {
     if (!activeFilePath || !activeFile) return;
-    const nextContent = draftsRef.current[activeFilePath];
-    if (nextContent === undefined || nextContent === activeFile.content) {
-      return;
+
+    if (activeFile.kind === "pdf") {
+      const editState = pdfEditStates[activeFilePath];
+      if (!hasPdfEdits(editState)) return;
+
+      savingPathsRef.current.add(activeFilePath);
+      const nextBytes = await applyPdfEdits(activeFile.bytes, editState);
+      await writeFileBytes(activeFilePath, nextBytes);
+      const metadata = await getFileMetadata(activeFilePath);
+      updatePdfBytes(activeFilePath, nextBytes, metadata);
+      setPdfEditStates((current) => {
+        const next = { ...current };
+        delete next[activeFilePath];
+        return next;
+      });
+      window.setTimeout(() => {
+        savingPathsRef.current.delete(activeFilePath);
+      }, 1500);
+    } else {
+      const nextContent = draftsRef.current[activeFilePath];
+      if (nextContent === undefined || nextContent === activeFile.content) {
+        return;
+      }
+
+      savingPathsRef.current.add(activeFilePath);
+      await writeMarkdownFile(activeFilePath, nextContent);
+      updateFileContent(activeFilePath, nextContent);
+      window.setTimeout(() => {
+        savingPathsRef.current.delete(activeFilePath);
+      }, 1500);
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[activeFilePath];
+        return next;
+      });
     }
 
-    savingPathsRef.current.add(activeFilePath);
-    await writeMarkdownFile(activeFilePath, nextContent);
-    updateFileContent(activeFilePath, nextContent);
-    window.setTimeout(() => {
-      savingPathsRef.current.delete(activeFilePath);
-    }, 1500);
-    setDrafts((current) => {
-      const next = { ...current };
-      delete next[activeFilePath];
-      return next;
-    });
     setExternalChangePaths((current) => {
       if (!current[activeFilePath]) {
         return current;
@@ -327,12 +391,103 @@ function App() {
       delete next[activeFilePath];
       return next;
     });
-  }, [activeFile, activeFilePath, updateFileContent]);
+  }, [activeFile, activeFilePath, pdfEditStates, updateFileContent, updatePdfBytes]);
+
+  const handleSaveActiveFileAsCopy = useCallback(async () => {
+    if (!activeFilePath || activeFile?.kind !== "pdf") return;
+
+    const targetPath = await save({
+      defaultPath: activeFile.filename.replace(/\.pdf$/i, " copy.pdf"),
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (!targetPath) return;
+
+    const editState = pdfEditStates[activeFilePath] ?? createEmptyPdfEditState();
+    const bytes = hasPdfEdits(editState)
+      ? await applyPdfEdits(activeFile.bytes, editState)
+      : activeFile.bytes;
+    await writeFileBytes(targetPath, bytes);
+  }, [activeFile, activeFilePath, pdfEditStates]);
 
   const handleToggleEditMode = useCallback(() => {
     if (!activeFilePath) return;
     setEditMode((current) => !current);
   }, [activeFilePath]);
+
+  const handlePdfPageChange = useCallback(
+    (pageIndex: number) => {
+      if (!activeFilePath) return;
+      setPdfPageByPath((current) => ({ ...current, [activeFilePath]: pageIndex }));
+      setPdfSearchPageByPath((current) => ({ ...current, [activeFilePath]: null }));
+    },
+    [activeFilePath],
+  );
+
+  const handlePdfPageCountChange = useCallback(
+    (pageCount: number) => {
+      if (!activeFilePath) return;
+      setPdfPageCountByPath((current) => ({ ...current, [activeFilePath]: pageCount }));
+    },
+    [activeFilePath],
+  );
+
+  const handlePdfEditStateChange = useCallback(
+    (editState: PdfEditState) => {
+      if (!activeFilePath) return;
+      setPdfEditStates((current) => ({
+        ...current,
+        [activeFilePath]: editState,
+      }));
+    },
+    [activeFilePath],
+  );
+
+  const handlePdfPreviousPage = useCallback(() => {
+    if (!activeFilePath || activeFile?.kind !== "pdf") return;
+    setPdfPageByPath((current) => ({
+      ...current,
+      [activeFilePath]: Math.max((current[activeFilePath] ?? 0) - 1, 0),
+    }));
+  }, [activeFile, activeFilePath]);
+
+  const handlePdfNextPage = useCallback(() => {
+    if (!activeFilePath || activeFile?.kind !== "pdf") return;
+    setPdfPageByPath((current) => ({
+      ...current,
+      [activeFilePath]: Math.min(
+        (current[activeFilePath] ?? 0) + 1,
+        Math.max(activePdfPageCount - 1, 0),
+      ),
+    }));
+  }, [activeFile, activeFilePath, activePdfPageCount]);
+
+  const handlePdfRotatePage = useCallback(() => {
+    if (!activeFilePath || activeFile?.kind !== "pdf") return;
+    const current = activePdfEditState.rotations[activePdfPageIndex] ?? 0;
+    setPdfEditStates((state) => ({
+      ...state,
+      [activeFilePath]: {
+        ...activePdfEditState,
+        rotations: {
+          ...activePdfEditState.rotations,
+          [activePdfPageIndex]: (current + 90) % 360,
+        },
+      },
+    }));
+  }, [activeFile, activeFilePath, activePdfEditState, activePdfPageIndex]);
+
+  const handlePdfDeletePage = useCallback(() => {
+    if (!activeFilePath || activeFile?.kind !== "pdf") return;
+    setPdfEditStates((state) => ({
+      ...state,
+      [activeFilePath]: {
+        ...activePdfEditState,
+        deletedPages: Array.from(
+          new Set([...activePdfEditState.deletedPages, activePdfPageIndex]),
+        ),
+      },
+    }));
+  }, [activeFile, activeFilePath, activePdfEditState, activePdfPageIndex]);
 
   const handleZoomIn = useCallback(() => {
     setZoomLevel((current) =>
@@ -365,6 +520,9 @@ function App() {
     },
     onNavigateHeadingPrev: handlePreviousHeading,
     onNavigateHeadingNext: handleNextHeading,
+    onPreviousPage: handlePdfPreviousPage,
+    onNextPage: handlePdfNextPage,
+    onRotatePage: handlePdfRotatePage,
     onZoomIn: handleZoomIn,
     onZoomOut: handleZoomOut,
     onZoomReset: handleZoomReset,
@@ -374,9 +532,9 @@ function App() {
     const appWindow = getCurrentWebviewWindow();
     if (activeFile) {
       const dirtyMark = activeFileIsDirty ? " • Edited" : "";
-      appWindow.setTitle(`${activeFile.filename}${dirtyMark} — Houston 2.0`);
+      appWindow.setTitle(`${activeFile.filename}${dirtyMark} — Markwell`);
     } else {
-      appWindow.setTitle("Houston 2.0");
+      appWindow.setTitle("Markwell");
     }
   }, [activeFile, activeFileIsDirty]);
 
@@ -396,7 +554,7 @@ function App() {
       } else if (event.payload.type === "drop") {
         setDragOver(false);
         for (const path of event.payload.paths) {
-          if (isMarkdownPath(path)) {
+          if (isDocumentPath(path)) {
             await openFile(path);
           }
         }
@@ -448,7 +606,7 @@ function App() {
       unlisteners.push(
         await listen<string[]>("app:open-files", async (event) => {
           for (const path of event.payload) {
-            if (isMarkdownPath(path)) {
+            if (isDocumentPath(path)) {
               await openFile(path);
             }
           }
@@ -457,7 +615,7 @@ function App() {
 
       unlisteners.push(
         await listen<string>("watcher:file-added", async (event) => {
-          if (!isMarkdownPath(event.payload)) return;
+          if (!isDocumentPath(event.payload)) return;
           setWatchedFilePaths((current) =>
             Array.from(new Set([...current, event.payload])).sort(),
           );
@@ -466,20 +624,22 @@ function App() {
 
       unlisteners.push(
         await listen<string>("watcher:file-changed", async (event) => {
-          if (isMarkdownPath(event.payload)) {
-            if (savingPathsRef.current.has(event.payload)) {
-              savingPathsRef.current.delete(event.payload);
-              return;
-            }
-            if (draftsRef.current[event.payload] !== undefined) {
-              setExternalChangePaths((current) => ({
-                ...current,
-                [event.payload]: true,
-              }));
-              return;
-            }
-            await reloadFile(event.payload);
+          if (!isDocumentPath(event.payload)) return;
+          if (savingPathsRef.current.has(event.payload)) {
+            savingPathsRef.current.delete(event.payload);
+            return;
           }
+          if (
+            draftsRef.current[event.payload] !== undefined ||
+            hasPdfEdits(pdfEditStatesRef.current[event.payload])
+          ) {
+            setExternalChangePaths((current) => ({
+              ...current,
+              [event.payload]: true,
+            }));
+            return;
+          }
+          await reloadFile(event.payload);
         }),
       );
 
@@ -496,7 +656,7 @@ function App() {
       if (cancelled) return;
 
       for (const path of pendingPaths) {
-        if (isMarkdownPath(path)) {
+        if (isDocumentPath(path)) {
           await openFile(path);
         }
       }
@@ -526,14 +686,23 @@ function App() {
 
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      searchMarkdownFiles({
-        dir: watchedFolder,
-        filePaths: openFiles.map((file) => file.path),
-        query: paletteQuery,
-      })
-        .then((results) => {
+      const pdfPaths = watchedFolder
+        ? watchedFilePaths.filter(isPdfPath)
+        : openFiles.filter((file) => file.kind === "pdf").map((file) => file.path);
+
+      Promise.all([
+        searchMarkdownFiles({
+          dir: watchedFolder,
+          filePaths: openFiles
+            .filter((file) => file.kind === "markdown")
+            .map((file) => file.path),
+          query: paletteQuery,
+        }),
+        searchPdfFiles(pdfPaths, paletteQuery, pdfTextCacheRef.current),
+      ])
+        .then(([markdownResults, pdfResults]) => {
           if (!cancelled) {
-            setSearchResults(results);
+            setSearchResults([...markdownResults, ...pdfResults]);
           }
         })
         .catch(() => {
@@ -547,7 +716,7 @@ function App() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [paletteMode, paletteOpen, paletteQuery, watchedFolder, openFiles]);
+  }, [paletteMode, paletteOpen, paletteQuery, watchedFolder, watchedFilePaths, openFiles]);
 
   const paletteSections = useMemo(() => {
     const query = paletteQuery.trim().toLowerCase();
@@ -566,7 +735,9 @@ function App() {
         kind: "open-file",
         id: `open:${file.path}`,
         label: file.filename,
-        detail: file.parentFolder || "Open file",
+        detail: `${file.kind === "pdf" ? "PDF" : "Markdown"} • ${
+          file.parentFolder || "Open file"
+        }`,
         path: file.path,
       }));
 
@@ -600,7 +771,9 @@ function App() {
               kind: "open-file",
               id: `watch:${path}`,
               label: fileLabel(path),
-              detail: fileDetail(path) || "Watched folder",
+              detail: `${isPdfPath(path) ? "PDF" : "Markdown"} • ${
+                fileDetail(path) || "Watched folder"
+              }`,
               path,
             }))
         : [];
@@ -613,9 +786,11 @@ function App() {
       paletteMode === "search"
         ? searchResults.map((result) => ({
             kind: "search-result",
-            id: `search:${result.path}:${result.line}:${result.headingId ?? "top"}`,
+            id: `search:${result.path}:${result.line}:${result.headingId ?? result.page ?? "top"}`,
             label: result.filename,
-            detail: `${result.parentFolder || "Search"} • ${result.snippet}`,
+            detail: `${result.kind === "pdf" ? `PDF page ${result.page ?? 1}` : "Markdown"} • ${
+              result.parentFolder || "Search"
+            } • ${result.snippet}`,
             result,
           }))
         : [];
@@ -631,7 +806,7 @@ function App() {
               kind: "action",
               id: "action:open-file",
               label: "Open file",
-              detail: "Choose markdown files to open",
+              detail: "Choose Markdown or PDF documents to open",
               action: "open-file",
             },
             {
@@ -653,10 +828,19 @@ function App() {
                   {
                     kind: "action",
                     id: "action:edit-mode",
-                    label: editMode ? "Preview markdown" : "Edit markdown",
+                    label:
+                      activeFile?.kind === "pdf"
+                        ? editMode
+                          ? "Preview PDF"
+                          : "Edit PDF"
+                        : editMode
+                          ? "Preview markdown"
+                          : "Edit markdown",
                     detail: editMode
                       ? "Switch back to the rendered reader view"
-                      : "Edit the current markdown source",
+                      : activeFile?.kind === "pdf"
+                        ? "Annotate, overlay edit, and adjust pages"
+                        : "Edit the current markdown source",
                     action: "toggle-edit-mode",
                   },
                   {
@@ -668,6 +852,45 @@ function App() {
                       : "No unsaved changes",
                     action: "save-file",
                   },
+                  ...(activeFile?.kind === "pdf"
+                    ? [
+                        {
+                          kind: "action",
+                          id: "action:save-file-as-copy",
+                          label: "Save PDF as copy",
+                          detail: "Write the edited PDF to a new file",
+                          action: "save-file-as-copy",
+                        },
+                        {
+                          kind: "action",
+                          id: "action:previous-page",
+                          label: "Previous page",
+                          detail: "Move to the previous PDF page",
+                          action: "previous-page",
+                        },
+                        {
+                          kind: "action",
+                          id: "action:next-page",
+                          label: "Next page",
+                          detail: "Move to the next PDF page",
+                          action: "next-page",
+                        },
+                        {
+                          kind: "action",
+                          id: "action:rotate-page",
+                          label: "Rotate page",
+                          detail: "Rotate the current PDF page clockwise",
+                          action: "rotate-page",
+                        },
+                        {
+                          kind: "action",
+                          id: "action:delete-page",
+                          label: "Delete page",
+                          detail: "Remove the current PDF page on save",
+                          action: "delete-page",
+                        },
+                      ]
+                    : []),
                 ] as CommandPaletteItem[])
               : []),
             {
@@ -725,6 +948,7 @@ function App() {
 
     return sections;
   }, [
+    activeFile,
     activeHeadings,
     activeFileIsDirty,
     activeFilePath,
@@ -754,7 +978,14 @@ function App() {
 
       if (item.kind === "search-result") {
         await openFile(item.result.path);
-        jumpToHeading(item.result.headingId, item.result.path);
+        if (item.result.kind === "pdf") {
+          setPdfSearchPageByPath((current) => ({
+            ...current,
+            [item.result.path]: item.result.page ?? 1,
+          }));
+        } else {
+          jumpToHeading(item.result.headingId, item.result.path);
+        }
         return;
       }
 
@@ -773,6 +1004,21 @@ function App() {
           break;
         case "save-file":
           await handleSaveActiveFile();
+          break;
+        case "save-file-as-copy":
+          await handleSaveActiveFileAsCopy();
+          break;
+        case "previous-page":
+          handlePdfPreviousPage();
+          break;
+        case "next-page":
+          handlePdfNextPage();
+          break;
+        case "rotate-page":
+          handlePdfRotatePage();
+          break;
+        case "delete-page":
+          handlePdfDeletePage();
           break;
         case "zoom-in":
           handleZoomIn();
@@ -797,7 +1043,12 @@ function App() {
     [
       handleOpenFile,
       handleOpenFolder,
+      handlePdfDeletePage,
+      handlePdfNextPage,
+      handlePdfPreviousPage,
+      handlePdfRotatePage,
       handleSaveActiveFile,
+      handleSaveActiveFileAsCopy,
       handleToggleEditMode,
       handleZoomIn,
       handleZoomOut,
@@ -820,30 +1071,48 @@ function App() {
       />
 
       <div className="main-shell">
-        <ReaderPane
-          content={activeContent}
-          filePath={activeFilePath}
-          filename={activeFile?.filename ?? null}
-          headings={activeHeadings}
-          activeHeadingId={activeHeadingId}
-          jumpTarget={jumpTarget}
-          outlineVisible={outlineVisible}
-          isEditing={editMode}
-          isDirty={activeFileIsDirty}
-          hasExternalChanges={activeFileHasExternalChanges}
-          scrollPositions={scrollPositions}
-          onScroll={updateScrollPosition}
-          onActiveHeadingChange={setActiveHeadingId}
-          onJumpHandled={handleJumpHandled}
-          onContentChange={handleDraftChange}
-          onOpenCommandPalette={() => openPalette("all")}
-          onOpenSearch={() => openPalette("search")}
-          onSave={handleSaveActiveFile}
-          onToggleEditMode={handleToggleEditMode}
-          onToggleOutline={() => setOutlineVisible((current) => !current)}
-        />
+        {activeFile?.kind === "pdf" ? (
+          <PdfPane
+            bytes={activeFile.bytes}
+            filename={activeFile.filename}
+            editMode={editMode}
+            editState={activePdfEditState}
+            isDirty={activePdfIsDirty}
+            hasExternalChanges={activeFileHasExternalChanges}
+            pageIndex={activePdfPageIndex}
+            searchPage={activePdfSearchPage}
+            onPageChange={handlePdfPageChange}
+            onPageCountChange={handlePdfPageCountChange}
+            onEditStateChange={handlePdfEditStateChange}
+            onSave={handleSaveActiveFile}
+            onToggleEditMode={handleToggleEditMode}
+          />
+        ) : (
+          <ReaderPane
+            content={activeMarkdownContent}
+            filePath={activeFilePath}
+            filename={activeFile?.filename ?? null}
+            headings={activeHeadings}
+            activeHeadingId={activeHeadingId}
+            jumpTarget={jumpTarget}
+            outlineVisible={outlineVisible}
+            isEditing={editMode}
+            isDirty={activeMarkdownIsDirty}
+            hasExternalChanges={activeFileHasExternalChanges}
+            scrollPositions={scrollPositions}
+            onScroll={updateScrollPosition}
+            onActiveHeadingChange={setActiveHeadingId}
+            onJumpHandled={handleJumpHandled}
+            onContentChange={handleDraftChange}
+            onOpenCommandPalette={() => openPalette("all")}
+            onOpenSearch={() => openPalette("search")}
+            onSave={handleSaveActiveFile}
+            onToggleEditMode={handleToggleEditMode}
+            onToggleOutline={() => setOutlineVisible((current) => !current)}
+          />
+        )}
 
-        {!isNarrowLayout && outlineVisible ? (
+        {activeFile?.kind !== "pdf" && !isNarrowLayout && outlineVisible ? (
           <OutlinePane
             headings={activeHeadings}
             activeHeadingId={activeHeadingId}
@@ -852,7 +1121,7 @@ function App() {
         ) : null}
       </div>
 
-      {isNarrowLayout && outlineVisible ? (
+      {activeFile?.kind !== "pdf" && isNarrowLayout && outlineVisible ? (
         <div className="overlay-shell" onClick={() => setOutlineVisible(false)}>
           <div onClick={(event) => event.stopPropagation()}>
             <OutlinePane

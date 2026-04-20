@@ -294,9 +294,9 @@ export default function ReaderPane({
       <div className="reader-shell">
         <div className="reader-toolbar">
           <div className="reader-toolbar-meta">
-            <div className="reader-toolbar-title">Houston 2.0</div>
+            <div className="reader-toolbar-title">Markwell</div>
             <div className="reader-toolbar-subtitle">
-              Open a file, search your docs, or jump with the command palette
+              Open Markdown or PDF, search your docs, or jump with the command palette
             </div>
           </div>
           <div className="reader-toolbar-actions">

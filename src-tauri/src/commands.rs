@@ -3,18 +3,38 @@ use crate::{
     PendingOpenFiles,
 };
 use serde::Serialize;
-use std::{collections::HashSet, path::Path};
+use std::{
+    collections::HashSet,
+    path::Path,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use tauri::{AppHandle, State};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
+    kind: String,
     path: String,
     filename: String,
     parent_folder: String,
     snippet: String,
     line: usize,
     heading_id: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileMetadata {
+    modified_ms: u64,
+    size: u64,
+}
+
+fn is_markdown_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| matches!(ext.to_ascii_lowercase().as_str(), "md" | "mdx" | "markdown"))
+        .unwrap_or(false)
 }
 
 fn extract_file_info(path: &str) -> (String, String) {
@@ -172,7 +192,33 @@ pub async fn write_markdown_file(path: String, content: String) -> Result<(), St
 }
 
 #[tauri::command]
-pub async fn list_markdown_files(dir: String) -> Result<Vec<String>, String> {
+pub async fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| format!("Failed to read {}: {}", path, e))
+}
+
+#[tauri::command]
+pub async fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String> {
+    std::fs::write(&path, bytes).map_err(|e| format!("Failed to write {}: {}", path, e))
+}
+
+#[tauri::command]
+pub async fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
+    let metadata =
+        std::fs::metadata(&path).map_err(|e| format!("Failed to stat {}: {}", path, e))?;
+    let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let modified_ms = modified
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    Ok(FileMetadata {
+        modified_ms,
+        size: metadata.len(),
+    })
+}
+
+#[tauri::command]
+pub async fn list_document_files(dir: String) -> Result<Vec<String>, String> {
     Ok(watcher::scan_directory(&dir))
 }
 
@@ -235,6 +281,10 @@ pub async fn search_markdown_files(
     let mut results = Vec::new();
 
     for path in paths {
+        if !is_markdown_path(&path) {
+            continue;
+        }
+
         let Ok(content) = std::fs::read_to_string(&path) else {
             continue;
         };
@@ -276,6 +326,7 @@ pub async fn search_markdown_files(
         results.push((
             best_score,
             SearchResult {
+                kind: "markdown".to_string(),
                 path,
                 filename,
                 parent_folder,

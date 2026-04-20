@@ -13,7 +13,7 @@ export default function EmptyState() {
     >
       <div style={{ fontSize: "48px", opacity: 0.4 }}>&#128196;</div>
       <div style={{ fontSize: "18px", fontWeight: 500 }}>
-        Open a Markdown file
+        Open a document
       </div>
       <div style={{ fontSize: "13px" }}>
         Press{" "}
@@ -28,7 +28,7 @@ export default function EmptyState() {
         >
           &#8984;O
         </kbd>{" "}
-        to open a file or drag and drop
+        to open Markdown or PDF, or drag and drop
       </div>
     </div>
   );

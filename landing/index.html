@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Houston — A Markdown Reader for macOS</title>
+  <title>Markwell — Markdown and PDF Reader/Editor for macOS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <style>
@@ -613,7 +613,7 @@
       background: var(--gray-200);
     }
 
-    .bar.houston {
+    .bar.markwell {
       width: 7%;
       background: var(--gray-950);
     }
@@ -800,7 +800,7 @@
       <a href="#features" class="nav-link">Features</a>
       <a href="#specs" class="nav-link">Specs</a>
       <a href="https://github.com/litterthanlit/good-md" class="nav-link">GitHub</a>
-      <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="nav-cta">Download</a>
+      <a href="Markwell_0.1.0_aarch64.dmg" download class="nav-cta">Download</a>
     </div>
   </nav>
 
@@ -808,12 +808,12 @@
   <section class="hero">
     <div class="hero-badge">
       <span class="hero-badge-dot">v2</span>
-      <span>Houston 2.0 — now available for macOS</span>
+      <span>Markwell 2.0 — now available for macOS</span>
     </div>
-    <h1><span class="gradient-text">Read markdown,<br>beautifully.</span></h1>
-    <p>A native macOS reader with session persistence, folder watching, scroll memory, and full GFM support — all in 3.3 MB.</p>
+    <h1><span class="gradient-text">Read, mark,<br>and move quickly.</span></h1>
+    <p>A native macOS Markdown and PDF reader/editor with folder search, edit mode, outlines, annotations, and scroll memory.</p>
     <div class="hero-actions">
-      <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="btn-primary">
+      <a href="Markwell_0.1.0_aarch64.dmg" download class="btn-primary">
         <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M8 2v9m0 0l-3-3m3 3l3-3M3 13h10"/>
         </svg>
@@ -854,11 +854,12 @@
         <div class="preview-content">
           <h2>Getting Started</h2>
           <div class="meta">Last modified 2 hours ago</div>
-          <p>Houston renders your markdown with native macOS performance. Open any <code>.md</code> file by dragging it into the window or pressing <strong>&#8984;O</strong>.</p>
-          <p>Supports GitHub Flavored Markdown with tables, task lists, footnotes, and syntax-highlighted code blocks.</p>
+          <p>Markwell renders Markdown and PDFs with native macOS performance. Open a document by dragging it into the window or pressing <strong>&#8984;O</strong>.</p>
+          <p>Supports GitHub Flavored Markdown, PDF reading, PDF text search, highlights, notes, and overlay-style PDF edits.</p>
           <div class="code-block">
-<span class="kw">const</span> reader = <span class="kw">new</span> Houston();<br>
+<span class="kw">const</span> reader = <span class="kw">new</span> Markwell();<br>
 reader.open(<span class="str">"./README.md"</span>);<br>
+reader.annotate(<span class="str">"./brief.pdf"</span>);<br>
 <span class="cm">// That's it. Just read.</span>
           </div>
         </div>
@@ -970,11 +971,11 @@ reader.open(<span class="str">"./README.md"</span>);<br>
     <div class="specs-grid">
       <div class="specs-content">
         <h2>Lightweight by design.</h2>
-        <p>Built on Tauri with native macOS WebKit — no bundled browser engine. Houston is the markdown reader your Mac deserves.</p>
+        <p>Built on Tauri with native macOS WebKit — no bundled browser engine. Markwell is the local-first document reader/editor your Mac deserves.</p>
         <div class="specs-list">
           <div class="spec-item">
             <div class="spec-bullet"></div>
-            <span><strong>~12 MB</strong> total application size</span>
+            <span><strong>~10 MB</strong> total application size</span>
           </div>
           <div class="spec-item">
             <div class="spec-bullet"></div>
@@ -995,14 +996,14 @@ reader.open(<span class="str">"./README.md"</span>);<br>
         </div>
       </div>
       <div class="specs-visual">
-        <div class="size-label">~12</div>
+        <div class="size-label">~10</div>
         <div class="size-unit">MB on disk</div>
         <div class="size-compare">
           vs. typical Electron apps
           <div class="bar-container">
             <div class="bar-row">
-              <span class="bar-label">Houston</span>
-              <div class="bar houston"></div>
+              <span class="bar-label">Markwell</span>
+              <div class="bar markwell"></div>
             </div>
             <div class="bar-row">
               <span class="bar-label">Electron</span>
@@ -1017,19 +1018,19 @@ reader.open(<span class="str">"./README.md"</span>);<br>
   <!-- ─── CTA ─── -->
   <section class="cta fade-in" id="download">
     <h2>Start reading.</h2>
-    <p>Houston is free and open source. Download the latest release or build from source.</p>
-    <a href="Houston-2.0_0.1.0_aarch64.dmg" download class="btn-primary" style="margin-bottom:12px;">
+    <p>Markwell is free and open source. Download the latest release or build from source.</p>
+    <a href="Markwell_0.1.0_aarch64.dmg" download class="btn-primary" style="margin-bottom:12px;">
       <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M8 2v9m0 0l-3-3m3 3l3-3M3 13h10"/>
       </svg>
-      Download Houston 2.0
+      Download Markwell 2.0
     </a>
-    <div style="font-size:13px;color:var(--gray-400);font-family:var(--font-mono);">macOS &middot; Apple Silicon &middot; 3.3 MB</div>
+    <div style="font-size:13px;color:var(--gray-400);font-family:var(--font-mono);">macOS &middot; Apple Silicon &middot; 4.0 MB DMG</div>
   </section>
 
   <!-- ─── Footer ─── -->
   <footer>
-    <div class="footer-left">Houston &mdash; A Good MD project.</div>
+    <div class="footer-left">Markwell &mdash; A Good MD project.</div>
     <div class="footer-links">
       <a href="https://github.com/litterthanlit/good-md">GitHub</a>
       <a href="#">Releases</a>

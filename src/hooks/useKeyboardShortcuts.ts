@@ -13,6 +13,9 @@ interface ShortcutHandlers {
   onSaveFile: () => void;
   onNavigateHeadingPrev: () => void;
   onNavigateHeadingNext: () => void;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  onRotatePage: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
@@ -58,6 +61,9 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
       } else if (meta && e.key.toLowerCase() === "s") {
         e.preventDefault();
         handlers.onSaveFile();
+      } else if (meta && e.key.toLowerCase() === "r") {
+        e.preventDefault();
+        handlers.onRotatePage();
       } else if (meta && (e.key === "=" || e.key === "+")) {
         e.preventDefault();
         handlers.onZoomIn();
@@ -74,6 +80,10 @@ export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
         handlers.onNavigateUp();
       } else if (e.key === "ArrowDown" && !meta && !typing) {
         handlers.onNavigateDown();
+      } else if (e.key === "ArrowLeft" && !meta && !typing) {
+        handlers.onPreviousPage();
+      } else if (e.key === "ArrowRight" && !meta && !typing) {
+        handlers.onNextPage();
       } else if (e.key === "[" && !meta && !typing) {
         e.preventDefault();
         handlers.onNavigateHeadingPrev();

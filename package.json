@@ -1,6 +1,6 @@
 {
-  "name": "houston",
-  "description": "A native macOS markdown reader built with Tauri v2 and React 19. Lightweight, fast, and beautiful.",
+  "name": "markwell",
+  "description": "A native macOS Markdown and PDF reader/editor built with Tauri v2 and React 19.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,6 +16,8 @@
     "@tauri-apps/plugin-store": "^2.4.2",
     "@tauri-apps/plugin-window-state": "^2.4.1",
     "highlight.js": "^11.11.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.6.205",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

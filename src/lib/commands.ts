@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { SearchResult } from "./types";
+import type { FileMetadata, SearchResult } from "./types";
 
 export async function readMarkdownFile(path: string): Promise<string> {
   return invoke<string>("read_markdown_file", { path });
@@ -12,8 +12,23 @@ export async function writeMarkdownFile(
   return invoke<void>("write_markdown_file", { path, content });
 }
 
-export async function listMarkdownFiles(dir: string): Promise<string[]> {
-  return invoke<string[]>("list_markdown_files", { dir });
+export async function readFileBytes(path: string): Promise<number[]> {
+  return invoke<number[]>("read_file_bytes", { path });
+}
+
+export async function writeFileBytes(
+  path: string,
+  bytes: number[],
+): Promise<void> {
+  return invoke<void>("write_file_bytes", { path, bytes });
+}
+
+export async function getFileMetadata(path: string): Promise<FileMetadata> {
+  return invoke<FileMetadata>("get_file_metadata", { path });
+}
+
+export async function listDocumentFiles(dir: string): Promise<string[]> {
+  return invoke<string[]>("list_document_files", { dir });
 }
 
 export async function watchFolder(dir: string): Promise<string[]> {

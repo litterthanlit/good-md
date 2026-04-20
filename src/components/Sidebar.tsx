@@ -1,10 +1,10 @@
-import type { OpenFile } from "../lib/types";
+import type { OpenDocument } from "../lib/types";
 import type { ThemePreference } from "../lib/types";
 import SidebarItem from "./SidebarItem";
 import "../styles/sidebar.css";
 
 interface SidebarProps {
-  files: OpenFile[];
+  files: OpenDocument[];
   activeFilePath: string | null;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
@@ -39,7 +39,7 @@ export default function Sidebar({
       </div>
       <div className="sidebar-list">
         {files.length === 0 ? (
-          <div className="sidebar-empty">No files open</div>
+          <div className="sidebar-empty">No documents open</div>
         ) : (
           files.map((file) => (
             <SidebarItem

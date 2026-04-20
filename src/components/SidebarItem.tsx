@@ -1,7 +1,7 @@
-import type { OpenFile } from "../lib/types";
+import type { OpenDocument } from "../lib/types";
 
 interface SidebarItemProps {
-  file: OpenFile;
+  file: OpenDocument;
   isActive: boolean;
   onSelect: () => void;
   onClose: () => void;
@@ -29,7 +29,10 @@ export default function SidebarItem({
     >
       <div className="sidebar-item-info">
         <div className="sidebar-item-name">{file.filename}</div>
-        <div className="sidebar-item-folder">{file.parentFolder}</div>
+        <div className="sidebar-item-folder">
+          {file.kind === "pdf" ? "PDF" : "Markdown"}
+          {file.parentFolder ? ` • ${file.parentFolder}` : ""}
+        </div>
       </div>
       <button
         className="sidebar-item-close"

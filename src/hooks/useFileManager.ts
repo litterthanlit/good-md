@@ -1,17 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { OpenFile } from "../lib/types";
-import { readMarkdownFile } from "../lib/commands";
+import type { OpenDocument } from "../lib/types";
+import {
+  getFileMetadata,
+  readFileBytes,
+  readMarkdownFile,
+} from "../lib/commands";
+import { extractFileInfo, getDocumentKind } from "../lib/documents";
 import { saveState, loadState } from "../lib/store";
 
-function extractFileInfo(path: string) {
-  const parts = path.split(/[\\/]+/);
-  const filename = parts[parts.length - 1] || path;
-  const parentFolder = parts.length >= 2 ? parts[parts.length - 2] : "";
-  return { filename, parentFolder };
-}
-
 export function useFileManager() {
-  const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
+  const [openFiles, setOpenFiles] = useState<OpenDocument[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [watchedFilePaths, setWatchedFilePaths] = useState<string[]>([]);
   const [scrollPositions, setScrollPositions] = useState<
@@ -19,7 +17,7 @@ export function useFileManager() {
   >({});
   const [watchedFolder, setWatchedFolder] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
-  const openFilesRef = useRef<OpenFile[]>([]);
+  const openFilesRef = useRef<OpenDocument[]>([]);
 
   useEffect(() => {
     openFilesRef.current = openFiles;
@@ -30,12 +28,13 @@ export function useFileManager() {
     loadState()
       .then(async (state) => {
         if (state.openFilePaths.length > 0) {
-          const files: OpenFile[] = [];
+          const files: OpenDocument[] = [];
           for (const path of state.openFilePaths) {
             try {
-              const content = await readMarkdownFile(path);
-              const { filename, parentFolder } = extractFileInfo(path);
-              files.push({ path, filename, parentFolder, content });
+              const file = await loadDocument(path);
+              if (file) {
+                files.push(file);
+              }
             } catch {
               // File may have been moved/deleted — skip it
             }
@@ -66,6 +65,25 @@ export function useFileManager() {
     }).catch(() => {});
   }, [openFiles, activeFilePath, watchedFolder, scrollPositions, initialized]);
 
+  const loadDocument = useCallback(async (path: string) => {
+    const kind = getDocumentKind(path);
+    if (!kind) {
+      return null;
+    }
+
+    const { filename, parentFolder } = extractFileInfo(path);
+    if (kind === "pdf") {
+      const [bytes, metadata] = await Promise.all([
+        readFileBytes(path),
+        getFileMetadata(path),
+      ]);
+      return { path, filename, parentFolder, kind, bytes, metadata };
+    }
+
+    const content = await readMarkdownFile(path);
+    return { path, filename, parentFolder, kind, content };
+  }, []);
+
   const openFile = useCallback(
     async (path: string) => {
       // Already open — just switch to it
@@ -75,20 +93,18 @@ export function useFileManager() {
         return;
       }
 
-      const content = await readMarkdownFile(path);
-      const { filename, parentFolder } = extractFileInfo(path);
-      const file: OpenFile = { path, filename, parentFolder, content };
+      const file = await loadDocument(path);
+      if (!file) return;
 
       setOpenFiles((prev) => [...prev, file]);
       setActiveFilePath(path);
     },
-    [],
+    [loadDocument],
   );
 
   const reloadFile = useCallback(async (path: string) => {
-    const content = await readMarkdownFile(path);
-    const { filename, parentFolder } = extractFileInfo(path);
-    const file: OpenFile = { path, filename, parentFolder, content };
+    const file = await loadDocument(path);
+    if (!file) return;
 
     setOpenFiles((prev) => {
       const idx = prev.findIndex((f) => f.path === path);
@@ -100,7 +116,7 @@ export function useFileManager() {
       next[idx] = file;
       return next;
     });
-  }, []);
+  }, [loadDocument]);
 
   const closeFile = useCallback(
     (path: string) => {
@@ -139,9 +155,26 @@ export function useFileManager() {
 
   const updateFileContent = useCallback((path: string, content: string) => {
     setOpenFiles((prev) =>
-      prev.map((file) => (file.path === path ? { ...file, content } : file)),
+      prev.map((file) =>
+        file.path === path && file.kind === "markdown"
+          ? { ...file, content }
+          : file,
+      ),
     );
   }, []);
+
+  const updatePdfBytes = useCallback(
+    (path: string, bytes: number[], metadata = { modifiedMs: Date.now(), size: bytes.length }) => {
+      setOpenFiles((prev) =>
+        prev.map((file) =>
+          file.path === path && file.kind === "pdf"
+            ? { ...file, bytes, metadata }
+            : file,
+        ),
+      );
+    },
+    [],
+  );
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath) ?? null;
 
@@ -160,5 +193,6 @@ export function useFileManager() {
     setWatchedFolder,
     updateScrollPosition,
     updateFileContent,
+    updatePdfBytes,
   };
 }

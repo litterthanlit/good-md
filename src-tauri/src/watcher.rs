@@ -5,10 +5,10 @@ use tauri::{AppHandle, Emitter};
 
 pub struct WatcherState(pub Mutex<Option<RecommendedWatcher>>);
 
-fn is_markdown(path: &Path) -> bool {
+fn is_document(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
-        .map(|e| matches!(e, "md" | "mdx" | "markdown"))
+        .map(|e| matches!(e.to_ascii_lowercase().as_str(), "md" | "mdx" | "markdown" | "pdf"))
         .unwrap_or(false)
 }
 
@@ -19,7 +19,7 @@ pub fn scan_directory(dir: &str) -> Vec<String> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if path.is_file() && is_markdown(path) {
+        if path.is_file() && is_document(path) {
             if let Some(s) = path.to_str() {
                 files.push(s.to_string());
             }
@@ -37,7 +37,7 @@ pub fn start_watcher(
     let mut watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| {
         if let Ok(event) = res {
             for path in &event.paths {
-                if !is_markdown(path) {
+                if !is_document(path) {
                     continue;
                 }
                 let path_str = path.to_string_lossy().to_string();

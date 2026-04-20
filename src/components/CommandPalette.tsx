@@ -91,7 +91,7 @@ export default function CommandPalette({
             }}
             placeholder={
               mode === "search"
-                ? "Search filenames and document text"
+                ? "Search Markdown and PDF text"
                 : "Go to files, headings, or app actions"
             }
           />
@@ -101,9 +101,9 @@ export default function CommandPalette({
           {sections.length === 0 ? (
             <div className="palette-empty">
               {mode === "search"
-                ? query.trim()
+                  ? query.trim()
                   ? "No matching documents"
-                  : "Start typing to search the current folder or your open files"
+                  : "Start typing to search the current folder or your open documents"
                 : "No matching destinations or commands"}
             </div>
           ) : (
