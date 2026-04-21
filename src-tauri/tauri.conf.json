@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
-  "productName": "Markwell",
+  "productName": "Houston-MD",
   "version": "0.1.0",
   "identifier": "com.houston.reader",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Markwell",
+        "title": "Houston-MD",
         "width": 1100,
         "height": 750,
         "minWidth": 600,

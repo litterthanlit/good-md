@@ -1,4 +1,4 @@
-# Markwell
+# Houston-MD
 
 A local-first macOS Markdown and PDF reader/editor. Lightweight, fast, and calm on purpose.
 

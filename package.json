@@ -1,5 +1,5 @@
 {
-  "name": "markwell",
+  "name": "houston-md",
   "description": "A native macOS Markdown and PDF reader/editor built with Tauri v2 and React 19.",
   "private": true,
   "version": "0.1.0",

@@ -532,9 +532,9 @@ function App() {
     const appWindow = getCurrentWebviewWindow();
     if (activeFile) {
       const dirtyMark = activeFileIsDirty ? " • Edited" : "";
-      appWindow.setTitle(`${activeFile.filename}${dirtyMark} — Markwell`);
+      appWindow.setTitle(`${activeFile.filename}${dirtyMark} — Houston-MD`);
     } else {
-      appWindow.setTitle("Markwell");
+      appWindow.setTitle("Houston-MD");
     }
   }, [activeFile, activeFileIsDirty]);
 

@@ -52,7 +52,7 @@ pub fn run() {
             commands::search_markdown_files
         ])
         .build(tauri::generate_context!())
-        .expect("error while running Markwell");
+        .expect("error while running Houston-MD");
 
     app.run(|app_handle, event| {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
