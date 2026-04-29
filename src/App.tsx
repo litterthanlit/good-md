@@ -6,6 +6,7 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import Sidebar from "./components/Sidebar";
 import ReaderPane from "./components/ReaderPane";
 import PdfPane from "./components/PdfPane";
+import NativePdfPane from "./components/NativePdfPane";
 import OutlinePane from "./components/OutlinePane";
 import CommandPalette from "./components/CommandPalette";
 import { useFileManager } from "./hooks/useFileManager";
@@ -98,6 +99,7 @@ function App() {
   const [pdfPageByPath, setPdfPageByPath] = useState<Record<string, number>>({});
   const [pdfPageCountByPath, setPdfPageCountByPath] = useState<Record<string, number>>({});
   const [pdfSearchPageByPath, setPdfSearchPageByPath] = useState<Record<string, number | null>>({});
+  const [pdfFallbackPaths, setPdfFallbackPaths] = useState<Record<string, true>>({});
   const [externalChangePaths, setExternalChangePaths] = useState<
     Record<string, true>
   >({});
@@ -113,6 +115,9 @@ function App() {
     () => window.innerWidth < NARROW_LAYOUT_WIDTH,
   );
   const { themePreference, setThemePreference } = useThemePreference();
+  const isMacPlatform =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   const draftsRef = useRef(drafts);
   const pdfEditStatesRef = useRef(pdfEditStates);
   const pdfTextCacheRef = useRef<Map<string, PdfTextCacheEntry>>(new Map());
@@ -283,6 +288,7 @@ function App() {
     setPdfPageByPath({});
     setPdfPageCountByPath({});
     setPdfSearchPageByPath({});
+    setPdfFallbackPaths({});
     closeAllFiles();
   }, [closeAllFiles, drafts, openFiles, pdfEditStates]);
 
@@ -1111,7 +1117,24 @@ function App() {
       />
 
       <div className="main-shell">
-        {activeFile?.kind === "pdf" ? (
+        {activeFile?.kind === "pdf" &&
+        isMacPlatform &&
+        !pdfFallbackPaths[activeFile.path] ? (
+          <NativePdfPane
+            path={activeFile.path}
+            filename={activeFile.filename}
+            hasExternalChanges={activeFileHasExternalChanges}
+            onFallback={() =>
+              setPdfFallbackPaths((current) => ({
+                ...current,
+                [activeFile.path]: true,
+              }))
+            }
+            onSaved={() => {
+              reloadFile(activeFile.path).catch(() => {});
+            }}
+          />
+        ) : activeFile?.kind === "pdf" ? (
           <PdfPane
             path={activeFile.path}
             bytes={activeFile.bytes}

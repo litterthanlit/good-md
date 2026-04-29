@@ -75,6 +75,76 @@ export interface PdfEditState {
   pageOrder: number[] | null;
 }
 
+export interface PdfPermissions {
+  canPrint: boolean;
+  canCopy: boolean;
+  canAnnotate: boolean;
+  canFillForms: boolean;
+}
+
+export interface PdfSessionInfo {
+  sessionId: string;
+  path: string;
+  pageCount: number;
+  encrypted: boolean;
+  permissions: PdfPermissions;
+  hasForms: boolean;
+  ocrAvailable: boolean;
+  dirty: boolean;
+  engine: string;
+}
+
+export interface PdfFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface PdfOcrPage {
+  pageIndex: number;
+  text: string;
+  words: Array<{
+    text: string;
+    confidence: number;
+    rect: PdfFrame & { pageIndex: number };
+  }>;
+  confidence: number;
+}
+
+export type PdfOperation =
+  | {
+      kind: "addAnnotation";
+      pageIndex: number;
+      annotationType: string;
+      rect: PdfFrame & { pageIndex: number };
+      text?: string | null;
+      color?: string | null;
+    }
+  | { kind: "deleteAnnotation"; annotationId: string }
+  | { kind: "pageRotate"; pageIndex: number; degrees: number }
+  | { kind: "pageDelete"; pageIndex: number }
+  | { kind: "pageMove"; fromIndex: number; toIndex: number }
+  | {
+      kind: "redactionMark";
+      rect: PdfFrame & { pageIndex: number };
+      reason?: string | null;
+    }
+  | { kind: "formValue"; fieldName: string; value: string }
+  | {
+      kind: "securityChange";
+      ownerPassword?: string | null;
+      userPassword?: string | null;
+      allowPrinting: boolean;
+      allowCopying: boolean;
+    };
+
+export interface PdfSaveOptions {
+  mode: "overwrite" | "copy";
+  targetPath?: string | null;
+  createBackup?: boolean;
+}
+
 export type CommandPaletteItem =
   | {
       kind: "open-file";

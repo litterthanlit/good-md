@@ -2,13 +2,16 @@ use crate::{
     watcher::{self, WatcherState},
     PendingOpenFiles,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
-    path::Path,
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
+
+pub struct PdfSessionState(pub Mutex<HashMap<String, PdfSession>>);
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,11 +32,152 @@ pub struct FileMetadata {
     size: u64,
 }
 
+#[derive(Clone)]
+pub struct PdfSession {
+    path: String,
+    modified_ms: u64,
+    size: u64,
+    dirty: bool,
+    operations: Vec<PdfOperation>,
+    undone_operations: Vec<PdfOperation>,
+    ocr_pages: Vec<PdfOcrPage>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfRect {
+    page_index: usize,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PdfOperation {
+    AddAnnotation {
+        page_index: usize,
+        annotation_type: String,
+        rect: PdfRect,
+        text: Option<String>,
+        color: Option<String>,
+    },
+    DeleteAnnotation {
+        annotation_id: String,
+    },
+    PageRotate {
+        page_index: usize,
+        degrees: i32,
+    },
+    PageDelete {
+        page_index: usize,
+    },
+    PageMove {
+        from_index: usize,
+        to_index: usize,
+    },
+    RedactionMark {
+        rect: PdfRect,
+        reason: Option<String>,
+    },
+    FormValue {
+        field_name: String,
+        value: String,
+    },
+    SecurityChange {
+        owner_password: Option<String>,
+        user_password: Option<String>,
+        allow_printing: bool,
+        allow_copying: bool,
+    },
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfPermissions {
+    can_print: bool,
+    can_copy: bool,
+    can_annotate: bool,
+    can_fill_forms: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfSessionInfo {
+    session_id: String,
+    path: String,
+    page_count: usize,
+    encrypted: bool,
+    permissions: PdfPermissions,
+    has_forms: bool,
+    ocr_available: bool,
+    dirty: bool,
+    engine: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfFrame {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfSaveOptions {
+    mode: String,
+    target_path: Option<String>,
+    create_backup: Option<bool>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfOcrWord {
+    text: String,
+    confidence: f64,
+    rect: PdfRect,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfOcrPage {
+    page_index: usize,
+    text: String,
+    words: Vec<PdfOcrWord>,
+    confidence: f64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfSearchResult {
+    path: String,
+    page: usize,
+    snippet: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfDirtyChanged {
+    session_id: String,
+    dirty: bool,
+}
+
 fn is_markdown_path(path: &str) -> bool {
     Path::new(path)
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| matches!(ext.to_ascii_lowercase().as_str(), "md" | "mdx" | "markdown"))
+        .unwrap_or(false)
+}
+
+fn is_pdf_path(path: &str) -> bool {
+    Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("pdf"))
         .unwrap_or(false)
 }
 
@@ -52,6 +196,67 @@ fn extract_file_info(path: &str) -> (String, String) {
         .to_string();
 
     (filename, parent_folder)
+}
+
+fn file_metadata_for_path(path: &str) -> Result<FileMetadata, String> {
+    let metadata =
+        std::fs::metadata(path).map_err(|e| format!("Failed to stat {}: {}", path, e))?;
+    let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let modified_ms = modified
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64;
+
+    Ok(FileMetadata {
+        modified_ms,
+        size: metadata.len(),
+    })
+}
+
+fn pdf_session_id(path: &str, metadata: &FileMetadata) -> String {
+    let mut hash = 1469598103934665603u64;
+    for byte in path.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(1099511628211);
+    }
+    format!("pdf-{}-{}-{}", hash, metadata.modified_ms, metadata.size)
+}
+
+fn pdf_contains(bytes: &[u8], marker: &str) -> bool {
+    String::from_utf8_lossy(bytes).contains(marker)
+}
+
+fn backup_path(path: &str) -> PathBuf {
+    let original = Path::new(path);
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let filename = original
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document.pdf");
+    original.with_file_name(format!("{filename}.{timestamp}.bak"))
+}
+
+fn atomic_copy_replace(source_path: &str, target_path: &str) -> Result<FileMetadata, String> {
+    let bytes =
+        std::fs::read(source_path).map_err(|e| format!("Failed to read {}: {}", source_path, e))?;
+    let target = Path::new(target_path);
+    let filename = target
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("document.pdf");
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let temp_path = target.with_file_name(format!(".{filename}.{nonce}.houston-tmp"));
+    std::fs::write(&temp_path, bytes)
+        .map_err(|e| format!("Failed to write {}: {}", temp_path.display(), e))?;
+    std::fs::rename(&temp_path, target_path)
+        .map_err(|e| format!("Failed to replace {}: {}", target_path, e))?;
+    file_metadata_for_path(target_path)
 }
 
 fn normalize_heading_text(value: &str) -> String {
@@ -203,18 +408,7 @@ pub async fn write_file_bytes(path: String, bytes: Vec<u8>) -> Result<(), String
 
 #[tauri::command]
 pub async fn get_file_metadata(path: String) -> Result<FileMetadata, String> {
-    let metadata =
-        std::fs::metadata(&path).map_err(|e| format!("Failed to stat {}: {}", path, e))?;
-    let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-    let modified_ms = modified
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64;
-
-    Ok(FileMetadata {
-        modified_ms,
-        size: metadata.len(),
-    })
+    file_metadata_for_path(&path)
 }
 
 #[tauri::command]
@@ -349,4 +543,254 @@ pub async fn search_markdown_files(
         .map(|(_, result)| result)
         .take(60)
         .collect())
+}
+
+#[tauri::command]
+pub async fn pdf_open_session(
+    path: String,
+    state: State<'_, PdfSessionState>,
+) -> Result<PdfSessionInfo, String> {
+    if !is_pdf_path(&path) {
+        return Err(format!("Not a PDF document: {}", path));
+    }
+
+    let bytes = std::fs::read(&path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    let metadata = file_metadata_for_path(&path)?;
+    let session_id = pdf_session_id(&path, &metadata);
+    let encrypted = pdf_contains(&bytes, "/Encrypt");
+    let has_forms = pdf_contains(&bytes, "/AcroForm");
+    let session = PdfSession {
+        path: path.clone(),
+        modified_ms: metadata.modified_ms,
+        size: metadata.size,
+        dirty: false,
+        operations: Vec::new(),
+        undone_operations: Vec::new(),
+        ocr_pages: Vec::new(),
+    };
+
+    state
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(session_id.clone(), session);
+
+    Ok(PdfSessionInfo {
+        session_id,
+        path,
+        page_count: 0,
+        encrypted,
+        permissions: PdfPermissions {
+            can_print: true,
+            can_copy: !encrypted,
+            can_annotate: true,
+            can_fill_forms: has_forms,
+        },
+        has_forms,
+        ocr_available: false,
+        dirty: false,
+        engine: "read-only-native-foundation".to_string(),
+    })
+}
+
+#[tauri::command]
+pub async fn pdf_close_session(
+    session_id: String,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    state
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .remove(&session_id);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pdf_attach_view(
+    session_id: String,
+    window_label: String,
+    frame: PdfFrame,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if !sessions.contains_key(&session_id) {
+        return Err(format!("Unknown PDF session: {}", session_id));
+    }
+
+    let _ = (window_label, frame.x, frame.y, frame.width, frame.height);
+    Err("Native PDFKit view embedding is not implemented yet".to_string())
+}
+
+#[tauri::command]
+pub async fn pdf_set_view_frame(
+    session_id: String,
+    frame: PdfFrame,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if !sessions.contains_key(&session_id) {
+        return Err(format!("Unknown PDF session: {}", session_id));
+    }
+
+    let _ = (frame.x, frame.y, frame.width, frame.height);
+    Err("Native PDFKit view embedding is not implemented yet".to_string())
+}
+
+#[tauri::command]
+pub async fn pdf_apply_operation(
+    session_id: String,
+    operation: PdfOperation,
+    app_handle: AppHandle,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if !sessions.contains_key(&session_id) {
+        return Err(format!("Unknown PDF session: {}", session_id));
+    }
+
+    let _ = (operation, app_handle);
+    Err(
+        "Native PDF editing is not implemented yet; use the PDF.js editor for current edits"
+            .to_string(),
+    )
+}
+
+#[tauri::command]
+pub async fn pdf_undo(
+    session_id: String,
+    app_handle: AppHandle,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("Unknown PDF session: {}", session_id))?;
+    if let Some(operation) = session.operations.pop() {
+        session.undone_operations.push(operation);
+    }
+    session.dirty = !session.operations.is_empty();
+    let _ = app_handle.emit(
+        "pdf:dirty-changed",
+        PdfDirtyChanged {
+            session_id,
+            dirty: session.dirty,
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pdf_redo(
+    session_id: String,
+    app_handle: AppHandle,
+    state: State<'_, PdfSessionState>,
+) -> Result<(), String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("Unknown PDF session: {}", session_id))?;
+    if let Some(operation) = session.undone_operations.pop() {
+        session.operations.push(operation);
+    }
+    session.dirty = !session.operations.is_empty();
+    let _ = app_handle.emit(
+        "pdf:dirty-changed",
+        PdfDirtyChanged {
+            session_id,
+            dirty: session.dirty,
+        },
+    );
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn pdf_run_ocr(
+    session_id: String,
+    pages: Option<Vec<usize>>,
+    app_handle: AppHandle,
+    state: State<'_, PdfSessionState>,
+) -> Result<Vec<PdfOcrPage>, String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    if !sessions.contains_key(&session_id) {
+        return Err(format!("Unknown PDF session: {}", session_id));
+    }
+
+    let _ = (pages, app_handle);
+    Err("Native OCR is not implemented yet".to_string())
+}
+
+#[tauri::command]
+pub async fn pdf_search(
+    session_id: String,
+    query: String,
+    state: State<'_, PdfSessionState>,
+) -> Result<Vec<PdfSearchResult>, String> {
+    let sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get(&session_id)
+        .ok_or_else(|| format!("Unknown PDF session: {}", session_id))?;
+    let query = query.trim().to_lowercase();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    Ok(session
+        .ocr_pages
+        .iter()
+        .filter(|page| page.text.to_lowercase().contains(&query))
+        .map(|page| PdfSearchResult {
+            path: session.path.clone(),
+            page: page.page_index + 1,
+            snippet: page.text.chars().take(140).collect(),
+        })
+        .collect())
+}
+
+#[tauri::command]
+pub async fn pdf_save(
+    session_id: String,
+    options: PdfSaveOptions,
+    app_handle: AppHandle,
+    state: State<'_, PdfSessionState>,
+) -> Result<FileMetadata, String> {
+    let mut sessions = state.0.lock().map_err(|e| e.to_string())?;
+    let session = sessions
+        .get_mut(&session_id)
+        .ok_or_else(|| format!("Unknown PDF session: {}", session_id))?;
+    if !session.operations.is_empty() {
+        return Err(
+            "Native PDF save cannot apply pending edit operations yet; use the PDF.js editor or discard the native draft"
+                .to_string(),
+        );
+    }
+    let target_path = match options.mode.as_str() {
+        "overwrite" => session.path.clone(),
+        "copy" => options
+            .target_path
+            .clone()
+            .ok_or_else(|| "Copy saves require targetPath".to_string())?,
+        other => return Err(format!("Unsupported PDF save mode: {}", other)),
+    };
+
+    if options.mode == "overwrite" && options.create_backup.unwrap_or(true) {
+        let backup = backup_path(&session.path);
+        std::fs::copy(&session.path, &backup)
+            .map_err(|e| format!("Failed to create backup {}: {}", backup.display(), e))?;
+    }
+
+    let metadata = atomic_copy_replace(&session.path, &target_path)?;
+    session.modified_ms = metadata.modified_ms;
+    session.size = metadata.size;
+    session.dirty = false;
+    session.operations.clear();
+    session.undone_operations.clear();
+    let _ = app_handle.emit(
+        "pdf:dirty-changed",
+        PdfDirtyChanged {
+            session_id,
+            dirty: false,
+        },
+    );
+    Ok(metadata)
 }

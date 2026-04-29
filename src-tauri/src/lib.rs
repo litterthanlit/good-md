@@ -38,6 +38,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .manage(watcher::WatcherState(Mutex::new(None)))
+        .manage(commands::PdfSessionState(Mutex::new(std::collections::HashMap::new())))
         .manage(PendingOpenFiles(Mutex::new(collect_launch_paths())))
         .invoke_handler(tauri::generate_handler![
             commands::read_markdown_file,
@@ -49,7 +50,17 @@ pub fn run() {
             commands::stop_watcher,
             commands::list_document_files,
             commands::consume_pending_open_files,
-            commands::search_markdown_files
+            commands::search_markdown_files,
+            commands::pdf_open_session,
+            commands::pdf_close_session,
+            commands::pdf_attach_view,
+            commands::pdf_set_view_frame,
+            commands::pdf_apply_operation,
+            commands::pdf_undo,
+            commands::pdf_redo,
+            commands::pdf_run_ocr,
+            commands::pdf_search,
+            commands::pdf_save
         ])
         .build(tauri::generate_context!())
         .expect("error while running Houston-MD");

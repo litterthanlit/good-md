@@ -283,6 +283,44 @@
   background: white;
 }
 
+.pdf-native-pro-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  overflow-x: auto;
+}
+
+.pdf-native-pro-toolbar button {
+  white-space: nowrap;
+}
+
+.pdf-native-pro-toolbar button.active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-primary));
+}
+
+.pdf-native-pro-toolbar input {
+  min-width: 180px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.pdf-native-pro-toolbar span {
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.native-pdf-stage {
+  position: relative;
+}
+
 .pdf-page-wrap {
   position: relative;
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.24);
