@@ -56,8 +56,8 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
-        if let RunEvent::Opened { urls } = event {
-            let paths = opened_urls_to_paths(&urls);
+        if let RunEvent::Opened { ref urls } = event {
+            let paths = opened_urls_to_paths(urls);
             if paths.is_empty() {
                 return;
             }
@@ -68,6 +68,14 @@ pub fn run() {
             }
 
             let _ = app_handle.emit("app:open-files", paths);
+        }
+
+        #[cfg(target_os = "macos")]
+        if let RunEvent::Reopen { .. } = event {
+            if let Some(window) = app_handle.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
         }
     });
 }

@@ -105,6 +105,7 @@ export type CommandPaletteItem =
       action:
         | "open-file"
         | "open-folder"
+        | "close-all-files"
         | "toggle-outline"
         | "toggle-edit-mode"
         | "save-file"

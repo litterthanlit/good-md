@@ -1,5 +1,4 @@
 import * as pdfjsLib from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 import {
   degrees,
   PDFDocument,
@@ -11,8 +10,6 @@ import {
 import { getFileMetadata, readFileBytes } from "./commands";
 import { extractFileInfo } from "./documents";
 import type { PdfAnnotation, PdfEditState, SearchResult } from "./types";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 export interface PdfTextPage {
   page: number;
@@ -52,7 +49,13 @@ export function hasPdfEdits(editState: PdfEditState | undefined) {
 }
 
 export async function loadPdfDocument(bytes: number[]) {
-  return pdfjsLib.getDocument({ data: Uint8Array.from(bytes) }).promise;
+  // WKWebView + bundled module workers can be flaky in Tauri. Running PDF.js on
+  // the main thread is slower on very large files, but it is far more reliable
+  // for the desktop app than a blank viewer.
+  return pdfjsLib.getDocument({
+    data: Uint8Array.from(bytes),
+    disableWorker: true,
+  } as Parameters<typeof pdfjsLib.getDocument>[0]).promise;
 }
 
 export async function extractPdfTextPages(bytes: number[]): Promise<PdfTextPage[]> {

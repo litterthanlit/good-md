@@ -76,6 +76,7 @@ function App() {
     openFile,
     reloadFile,
     closeFile,
+    closeAllFiles,
     setActiveFilePath,
     setWatchedFilePaths,
     watchedFolder,
@@ -260,6 +261,30 @@ function App() {
       handleClosePath(activeFilePath);
     }
   }, [activeFilePath, handleClosePath]);
+
+  const handleCloseAllFiles = useCallback(() => {
+    const hasUnsavedChanges =
+      Object.entries(drafts).some(([path, draft]) => {
+        const file = openFiles.find((item) => item.path === path);
+        return file?.kind === "markdown" && draft !== file.content;
+      }) ||
+      Object.values(pdfEditStates).some((editState) => hasPdfEdits(editState));
+
+    if (
+      hasUnsavedChanges &&
+      !window.confirm("Discard unsaved changes in all open documents?")
+    ) {
+      return;
+    }
+
+    setDrafts({});
+    setExternalChangePaths({});
+    setPdfEditStates({});
+    setPdfPageByPath({});
+    setPdfPageCountByPath({});
+    setPdfSearchPageByPath({});
+    closeAllFiles();
+  }, [closeAllFiles, drafts, openFiles, pdfEditStates]);
 
   const handleNavigateUp = useCallback(() => {
     if (!activeFilePath || openFiles.length === 0) return;
@@ -816,6 +841,17 @@ function App() {
               detail: "Watch a folder and search across it",
               action: "open-folder",
             },
+            ...(openFiles.length > 0
+              ? [
+                  {
+                    kind: "action",
+                    id: "action:close-all-files",
+                    label: "Close all documents",
+                    detail: "Clear the restored document session",
+                    action: "close-all-files",
+                  },
+                ]
+              : []),
             {
               kind: "action",
               id: "action:outline",
@@ -996,6 +1032,9 @@ function App() {
         case "open-folder":
           await handleOpenFolder();
           break;
+        case "close-all-files":
+          handleCloseAllFiles();
+          break;
         case "toggle-outline":
           setOutlineVisible((current) => !current);
           break;
@@ -1043,6 +1082,7 @@ function App() {
     [
       handleOpenFile,
       handleOpenFolder,
+      handleCloseAllFiles,
       handlePdfDeletePage,
       handlePdfNextPage,
       handlePdfPreviousPage,
@@ -1073,6 +1113,7 @@ function App() {
       <div className="main-shell">
         {activeFile?.kind === "pdf" ? (
           <PdfPane
+            path={activeFile.path}
             bytes={activeFile.bytes}
             filename={activeFile.filename}
             editMode={editMode}

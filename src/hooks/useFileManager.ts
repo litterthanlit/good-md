@@ -146,6 +146,12 @@ export function useFileManager() {
     [activeFilePath],
   );
 
+  const closeAllFiles = useCallback(() => {
+    setOpenFiles([]);
+    setActiveFilePath(null);
+    setScrollPositions({});
+  }, []);
+
   const updateScrollPosition = useCallback(
     (path: string, scrollTop: number) => {
       setScrollPositions((prev) => ({ ...prev, [path]: scrollTop }));
@@ -188,6 +194,7 @@ export function useFileManager() {
     openFile,
     reloadFile,
     closeFile,
+    closeAllFiles,
     setActiveFilePath,
     setWatchedFilePaths,
     setWatchedFolder,

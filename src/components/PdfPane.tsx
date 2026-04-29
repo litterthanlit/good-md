@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/types/src/display/api";
 import type { PdfAnnotation, PdfEditState, PdfPoint } from "../lib/types";
-import { extractPdfTextPages, loadPdfDocument } from "../lib/pdf";
+import { loadPdfDocument } from "../lib/pdf";
 
 type PdfTool = "highlight" | "note" | "text" | "whiteout" | "ink";
 
 interface PdfPaneProps {
+  path: string;
   bytes: number[];
   filename: string;
   editMode: boolean;
@@ -68,6 +70,7 @@ function movePage(editState: PdfEditState, pageCount: number, pageIndex: number,
 }
 
 export default function PdfPane({
+  path,
   bytes,
   filename,
   editMode,
@@ -86,6 +89,7 @@ export default function PdfPane({
   const pageWrapRef = useRef<HTMLDivElement>(null);
   const pageIndexRef = useRef(pageIndex);
   const inkPointsRef = useRef<PdfPoint[]>([]);
+  const nativePreviewUrlRef = useRef<string | null>(null);
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [pageCount, setPageCount] = useState(0);
@@ -94,6 +98,28 @@ export default function PdfPane({
   const [tool, setTool] = useState<PdfTool>("highlight");
   const [hasSelectableText, setHasSelectableText] = useState(true);
   const [inkDraftPoints, setInkDraftPoints] = useState<PdfPoint[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [useNativePreview, setUseNativePreview] = useState(false);
+  const isMac =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+  const nativePreviewUrl =
+    nativePreviewUrlRef.current ??
+    (isMac
+      ? `${convertFileSrc(path)}#toolbar=0&navpanes=0&scrollbar=1`
+      : null);
+
+  if (!nativePreviewUrlRef.current && nativePreviewUrl) {
+    nativePreviewUrlRef.current = nativePreviewUrl;
+  }
+
+  useEffect(() => {
+    nativePreviewUrlRef.current = isMac
+      ? `${convertFileSrc(path)}#toolbar=0&navpanes=0&scrollbar=1`
+      : null;
+    setUseNativePreview(false);
+    setLoadError(null);
+  }, [isMac, path]);
 
   useEffect(() => {
     pageIndexRef.current = pageIndex;
@@ -107,27 +133,54 @@ export default function PdfPane({
           await document.destroy();
           return;
         }
+        setUseNativePreview(false);
+        setLoadError(null);
         setPdfDocument(document);
         setPageCount(document.numPages);
         onPageCountChange(document.numPages);
         onPageChange(clampPage(pageIndexRef.current, document.numPages));
+
+        try {
+          let foundSelectableText = false;
+          const probePages = Math.min(document.numPages, 5);
+          for (let pageNumber = 1; pageNumber <= probePages; pageNumber += 1) {
+            const probePage = await document.getPage(pageNumber);
+            const content = await probePage.getTextContent();
+            foundSelectableText = content.items.some(
+              (item) =>
+                typeof (item as { str?: unknown }).str === "string" &&
+                (item as { str: string }).str.trim().length > 0,
+            );
+            if (foundSelectableText) break;
+          }
+
+          if (!cancelled) {
+            setHasSelectableText(foundSelectableText);
+          }
+        } catch (error) {
+          console.error("Failed to inspect PDF text layer", error);
+          if (!cancelled) {
+            // Default to hiding the OCR warning if inspection itself fails.
+            setHasSelectableText(true);
+          }
+        }
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Failed to load PDF document", error);
         if (!cancelled) {
           setPdfDocument(null);
           setPageCount(0);
+          setHasSelectableText(true);
+          if (isMac && nativePreviewUrlRef.current) {
+            setUseNativePreview(true);
+            setLoadError(null);
+          } else {
+            setUseNativePreview(false);
+            setLoadError("This PDF could not be loaded.");
+          }
           onPageCountChange(0);
+          onPageChange(0);
         }
-      });
-
-    extractPdfTextPages(bytes)
-      .then((pages) => {
-        if (!cancelled) {
-          setHasSelectableText(pages.some((item) => item.text.length > 0));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setHasSelectableText(false);
       });
 
     return () => {
@@ -149,8 +202,23 @@ export default function PdfPane({
       return;
     }
 
-    pdfDocument.getPage(targetPage + 1).then(setPage).catch(() => setPage(null));
-  }, [onPageChange, pageCount, pageIndex, pdfDocument]);
+    pdfDocument
+      .getPage(targetPage + 1)
+      .then((nextPage) => {
+        setLoadError(null);
+        setPage(nextPage);
+      })
+      .catch((error) => {
+        console.error("Failed to load PDF page", error);
+        setPage(null);
+        if (isMac && nativePreviewUrlRef.current) {
+          setUseNativePreview(true);
+          setLoadError(null);
+        } else {
+          setLoadError("This PDF page could not be opened.");
+        }
+      });
+  }, [isMac, onPageChange, pageCount, pageIndex, pdfDocument]);
 
   useEffect(() => {
     if (!searchPage || pageCount === 0) return;
@@ -186,7 +254,26 @@ export default function PdfPane({
             .join(" "),
         ),
       )
-      .catch(() => setPageText(""));
+      .catch((error) => {
+        console.error("Failed to read current PDF page text", error);
+        setPageText("");
+      });
+
+    task.promise.catch((error) => {
+      const message =
+        error instanceof Error ? error.message : String(error);
+      if (message.toLowerCase().includes("cancel")) {
+        return;
+      }
+
+      console.error("Failed to render PDF page", error);
+      if (isMac && nativePreviewUrlRef.current) {
+        setUseNativePreview(true);
+        setLoadError(null);
+      } else {
+        setLoadError("This PDF page could not be rendered.");
+      }
+    });
 
     return () => {
       task.cancel();
@@ -310,6 +397,44 @@ export default function PdfPane({
     });
   };
 
+  if (useNativePreview && nativePreviewUrlRef.current) {
+    return (
+      <div className="pdf-shell">
+        <div className="pdf-toolbar">
+          <div className="pdf-toolbar-meta">
+            <div className="reader-toolbar-title">{filename}</div>
+            <div className="reader-toolbar-subtitle">Native PDF compatibility mode</div>
+          </div>
+          <div className="pdf-toolbar-actions">
+            <button type="button" disabled title="Compatibility mode is read-only for now">
+              Native preview
+            </button>
+          </div>
+        </div>
+
+        {hasExternalChanges ? (
+          <div className="editor-banner" role="status">
+            The PDF changed on disk. Reopen it to refresh the native preview.
+          </div>
+        ) : null}
+
+        <div className="editor-banner" role="status">
+          This PDF is using macOS native preview for compatibility. Reading should work,
+          but search and editing tools are not available for this file yet.
+        </div>
+
+        <div className="pdf-native-stage">
+          <iframe
+            key={nativePreviewUrlRef.current}
+            className="pdf-native-frame"
+            src={nativePreviewUrlRef.current}
+            title={`${filename} native preview`}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pdf-shell">
       <div className="pdf-toolbar">
@@ -340,6 +465,12 @@ export default function PdfPane({
         <div className="editor-banner" role="status">
           The PDF changed on disk while you were editing. Save to overwrite it,
           or reopen it to load the outside changes.
+        </div>
+      ) : null}
+
+      {loadError ? (
+        <div className="editor-banner" role="status">
+          {loadError}
         </div>
       ) : null}
 

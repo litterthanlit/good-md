@@ -269,6 +269,20 @@
   justify-content: center;
 }
 
+.pdf-native-stage {
+  flex: 1;
+  min-height: 0;
+  background: #dfe6ef;
+}
+
+.pdf-native-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
 .pdf-page-wrap {
   position: relative;
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.24);
